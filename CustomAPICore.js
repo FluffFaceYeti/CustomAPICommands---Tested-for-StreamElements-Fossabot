@@ -153,6 +153,15 @@ const love = {
 };
 
 // ===========================================
+// NOTE: DO NOT HAVE DUPLICATED VALUES. 
+// Pet1 CAN NOT BE IN LOVE AND HATE 
+// SEPERATE AS FOLLOWS
+// pe1love AND pet1hate 
+// EXAMPLE COMMAND! 
+// !pet1love "Pet1 loves you 70% today!"
+// !pet1hate "Pet1 hates you 70% today!"
+// ===========================================
+
 // HATE
 // HOW THEY SHOW UP IN CHAT
 // "@YOURNAME, Pet1 hates you 23% today!"
