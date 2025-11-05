@@ -205,6 +205,11 @@ stats: {
   }
 }
 ```
+or 
+
+```yaml
+bunny: { min: 1, max: 30, levels: [5, 15], unit: "cm", label: "Bunny Size", unitSpace: false },
+```
 
 This will track the user’s "strength" and assign them a value between 1 and 100.
 
