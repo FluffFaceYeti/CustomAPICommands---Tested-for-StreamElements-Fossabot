@@ -104,12 +104,23 @@ if (specific === "true") return true;
 return true; // default to enabled
 }
 
-// Get a joke string for a given category and value
+// Get a joke string for a given category and value (scales automatically)
 function getJoke(req, type, value) {
-const level = value <= 30 ? "low" : value <= 70 ? "medium" : "high";
-if (!isJokeEnabled(req, type)) return "";
-if (!jokes[type] || !jokes[type][level]) return "";
-return " " + pickRandom(jokes[type][level]);
+  if (!isJokeEnabled(req, type)) return "";
+  const cfg =
+    (stats && stats[type]) ||
+    (personality && personality[type]) ||
+    (piracy && piracy[type]) ||
+    null;
+  if (!cfg || !cfg.levels) return "";
+
+  const [lowThreshold, highThreshold] = cfg.levels;
+  let level = "high"; // default to high
+  if (value <= lowThreshold) level = "low";
+  else if (value <= highThreshold) level = "medium";
+
+  if (!jokes[type] || !jokes[type][level]) return "";
+  return " " + pickRandom(jokes[type][level]);
 }
 
 // Format a username: remove @ and lowercase for internal use
@@ -1184,4 +1195,5 @@ res.send("pong");
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`Daily Stat API running on port ${port}`));
+
 
