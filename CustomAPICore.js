@@ -7,90 +7,84 @@ const TIMEZONE = "Europe/London";
 // ===========================================
 // 🚫 HELPERS
 // ===========================================
-
-// Generate a deterministic daily value based on seed, offset, and user
 function generateValue(seed, offset, max, min = 0, user = "") {
 const hash = crypto.createHash("md5").update(seed + offset + user).digest("hex");
 const num = parseInt(hash.slice(0, 8), 16);
 return (num % (max - min + 1)) + min;
 }
 
-// Pick a random element from an array
 function pickRandom(arr) {
 return arr[Math.floor(Math.random() * arr.length)];
 }
 
-// Check if jokes are enabled (global or per-type)
 function isJokeEnabled(req, type) {
-  const global = req.query.jokes;
-  if (global === "false") return false;
-  if (global === "true") return true;
+const global = req.query.jokes;
+if (global === "false") return false;
+if (global === "true") return true;
 
-  const specific = req.query[`joke_${type}`];
-  if (specific === "false") return false;
-  if (specific === "true") return true;
+const specific = req.query[`joke_${type}`];
+if (specific === "false") return false;
+if (specific === "true") return true;
 
-  return true; // default to enabled
+return true; 
 }
 
 /**
- * Universal joke getter
+ * Universal joke calculator
  * @param {object} req - request object
  * @param {string} type - joke type / command name
  * @param {number} value - numeric value to scale joke
  * @param {object} [cfg] - optional {min, max, levels} config for stats/interactions
  * @param {number} [index] - optional index for list-type commands
  */
+
 function getJoke(req, type, value, cfg = null, index = null) {
   if (!isJokeEnabled(req, type)) return "";
 
-  // If cfg is provided (stats or interactions)
+  if (typeof value !== "number" || value == null) {
+    return "";
+  }
+
+  if (type === "bb") {
+    return "";
+  }
+
   if (cfg && typeof value === "number") {
     const min = cfg.min ?? 0;
     const max = cfg.max ?? 100;
     const levels = cfg.levels ?? [30, 70];
 
-    // Normalize value to 0-100
-    const pct = ((value - min) / (max - min)) * 100;
-
     let level;
-    if (pct <= levels[0]) level = "low";
-    else if (pct <= levels[1]) level = "medium";
-    else level = "high";
-
-    if (jokes[type] && jokes[type][level]) {
-      return " " + pickRandom(jokes[type][level]);
+    if (value < levels[0]) {
+      level = "low";
+    } else if (value >= levels[0] && value <= levels[1]) {
+      level = "medium";
+    } else {
+      level = "high";
     }
-
-    return "";
+    if (jokes[type] && jokes[type][level]) {
+      const joke = pickRandom(jokes[type][level]);
+      return " " + joke;
+    } else {
+    }
   }
 
-  // If index is provided (list-type commands like animal/drink/colors)
-  if (index !== null) {
-    if (jokes[type] && jokes[type][index]) return " " + jokes[type][index];
-    return "";
-  }
+  const fallbackLevel = value <= 30 ? "low" : value <= 70 ? "medium" : "high";
 
-  // Fallback for numeric value without cfg (assume 0-100)
-  const level = value <= 30 ? "low" : value <= 70 ? "medium" : "high";
-  if (jokes[type] && jokes[type][level]) {
-    return " " + pickRandom(jokes[type][level]);
+  if (jokes[type] && jokes[type][fallbackLevel]) {
+    const fallbackJoke = pickRandom(jokes[type][fallbackLevel]);
+    return " " + fallbackJoke;
   }
 
   return "";
 }
 
-// Format a username: remove @ and lowercase for internal use
 function cleanUsername(name = "") {
 return name.replace(/^@/, "").toLowerCase();
 }
-
-// Format a username for display: always start with @
 function formatDisplayName(name = "") {
 return name.startsWith("@") ? name : `@${name}`;
 }
-
-// Optional space before a unit
 function spaceIf(unitSpace) {
 return unitSpace ? " " : "";
 }
@@ -108,103 +102,121 @@ rpsls: rpsls,
 highorlow: highOrLow,
 };
 
-// Rock Paper Scissors
+// ===========================================
+// 🎮 ROCK PAPER SCISSORS
+// ===========================================
+
 function rockPaperScissors(sender, target) {
-  const choices = ["rock", "paper", "scissors"];
-  const senderMove = pickRandom(choices); // Bot decides the sender's move
-  const targetMove = pickRandom(choices); // Bot decides the target's move
+const choices = ["rock", "paper", "scissors"];
+const senderMove = pickRandom(choices);
+const targetMove = pickRandom(choices);
 
-  if (senderMove === targetMove) {
-    return `${sender}, it's a tie with ${target}! Both chose ${senderMove}. Looks like you're equally matched! Maybe next time you'll win... or not. 😅`;
-  }
-  if (
-    (senderMove === "rock" && targetMove === "scissors") ||
-    (senderMove === "paper" && targetMove === "rock") ||
-    (senderMove === "scissors" && targetMove === "paper")
-  ) {
-    return `${sender} wins! ${senderMove} beats ${targetMove}. Victory is sweet... but remember, don't get cocky! 😎`;
-  }
-  return `${target} wins! ${targetMove} beats ${senderMove}. Oof, that’s gotta hurt! Better luck next time! 😂`;
+if (senderMove === targetMove) {
+return `${sender}, it's a tie with ${target}! Both chose ${senderMove}. Looks like you're equally matched! Maybe next time you'll win... or not. 😅`;
+}
+if (
+(senderMove === "rock" && targetMove === "scissors") ||
+(senderMove === "paper" && targetMove === "rock") ||
+(senderMove === "scissors" && targetMove === "paper")
+) {
+return `${sender} wins! ${senderMove} beats ${targetMove}. Victory is sweet... but remember, don't get cocky! 😎`;
+}
+return `${target} wins! ${targetMove} beats ${senderMove}. Oof, that’s gotta hurt! Better luck next time! 😂`;
 }
 
-// Tug of War
+// ===========================================
+// 🎮 TUG OF WAR
+// ===========================================
+
 function tugOfWar(sender, target) {
-  const senderStrength = Math.floor(Math.random() * 100);
-  const targetStrength = Math.floor(Math.random() * 100);
+const senderStrength = Math.floor(Math.random() * 100);
+const targetStrength = Math.floor(Math.random() * 100);
 
-  if (senderStrength > targetStrength) {
-    return `${sender} wins! They pulled with ${senderStrength} strength, while ${target} pulled with ${targetStrength}. Looks like you're the stronger one! 💪`;
-  } else if (senderStrength < targetStrength) {
-    return `${target} wins! They pulled with ${targetStrength} strength, while ${sender} pulled with ${senderStrength}. Ouch, looks like someone skipped leg day! 😂`;
-  } else {
-    return `It's a tie! Both ${sender} and ${target} pulled with ${senderStrength} strength. A real stalemate! 😅`;
-  }
+if (senderStrength > targetStrength) {
+return `${sender} wins! They pulled with ${senderStrength} strength, while ${target} pulled with ${targetStrength}. Looks like you're the stronger one! 💪`;
+} else if (senderStrength < targetStrength) {
+return `${target} wins! They pulled with ${targetStrength} strength, while ${sender} pulled with ${senderStrength}. Ouch, looks like someone skipped leg day! 😂`;
+} else {
+return `It's a tie! Both ${sender} and ${target} pulled with ${senderStrength} strength. A real stalemate! 😅`;
+}
 }
 
-// Dice Roll
+// ===========================================
+// 🎮 DICE ROLL
+// ===========================================
+
 function diceRoll(sender, target) {
-  const senderRoll = Math.floor(Math.random() * 6) + 1;
-  const targetRoll = Math.floor(Math.random() * 6) + 1;
+const senderRoll = Math.floor(Math.random() * 6) + 1;
+const targetRoll = Math.floor(Math.random() * 6) + 1;
 
-  if (senderRoll > targetRoll) {
-    return `${sender} wins! They rolled a ${senderRoll}, and ${target} rolled a ${targetRoll}. Lucky roll! 🍀`;
-  } else if (senderRoll < targetRoll) {
-    return `${target} wins! They rolled a ${targetRoll}, and ${sender} rolled a ${senderRoll}. Better luck next time, dice are cruel! 🎲`;
-  } else {
-    return `It's a tie! Both ${sender} and ${target} rolled a ${senderRoll}. A roll of destiny! 🤔`;
-  }
+if (senderRoll > targetRoll) {
+return `${sender} wins! They rolled a ${senderRoll}, and ${target} rolled a ${targetRoll}. Lucky roll! 🍀`;
+} else if (senderRoll < targetRoll) {
+return `${target} wins! They rolled a ${targetRoll}, and ${sender} rolled a ${senderRoll}. Better luck next time, dice are cruel! 🎲`;
+} else {
+return `It's a tie! Both ${sender} and ${target} rolled a ${senderRoll}. A roll of destiny! 🤔`;
+}
 }
 
-// Coin Flip
+// ===========================================
+// 🎮 COIN FLIP
+// ===========================================
+
 function coinFlip(sender, target) {
-  const result = Math.random() < 0.5 ? "Heads" : "Tails";
+const result = Math.random() < 0.5 ? "Heads" : "Tails";
 
-  if (sender.toLowerCase() === result.toLowerCase()) {
-    return `${sender} wins! The coin landed on ${result}. Heads or tails, it’s your lucky day! 🍀`;
-  } else {
-    return `${target} wins! The coin landed on ${result}. Looks like luck wasn't on your side this time! 😅`;
-  }
+if (sender.toLowerCase() === result.toLowerCase()) {
+return `${sender} wins! The coin landed on ${result}. Heads or tails, it’s your lucky day! 🍀`;
+} else {
+return `${target} wins! The coin landed on ${result}. Looks like luck wasn't on your side this time! 😅`;
+}
 }
 
-// Rock Paper Scissors Lizard Spock (RPSLS)
+// ===========================================
+// 🎮 ROCK PAPER SCISSORS LIZARD SPOCK
+// ===========================================
+
 function rpsls(sender, target) {
-  const choices = ["rock", "paper", "scissors", "lizard", "spock"];
-  const winConditions = {
-    rock: ["scissors", "lizard"],
-    paper: ["rock", "spock"],
-    scissors: ["paper", "lizard"],
-    lizard: ["spock", "paper"],
-    spock: ["rock", "scissors"]
-  };
+const choices = ["rock", "paper", "scissors", "lizard", "spock"];
+const winConditions = {
+rock: ["scissors", "lizard"],
+paper: ["rock", "spock"],
+scissors: ["paper", "lizard"],
+lizard: ["spock", "paper"],
+spock: ["rock", "scissors"]
+};
 
-  const senderMove = pickRandom(choices);
-  const targetMove = pickRandom(choices);
+const senderMove = pickRandom(choices);
+const targetMove = pickRandom(choices);
 
-  if (senderMove === targetMove) {
-    return `${sender}, it's a tie with ${target}! Both chose ${senderMove}. A cosmic stalemate! 🌌`;
-  }
-
-  if (winConditions[senderMove].includes(targetMove)) {
-    return `${sender} wins! ${senderMove} beats ${targetMove}. Oh, you’re the true master of the universe! 💥`;
-  } else {
-    return `${target} wins! ${targetMove} beats ${senderMove}. Looks like they outsmarted you this time! 🤔`;
-  }
+if (senderMove === targetMove) {
+return `${sender}, it's a tie with ${target}! Both chose ${senderMove}. A cosmic stalemate! 🌌`;
 }
 
-// High or Low
+if (winConditions[senderMove].includes(targetMove)) {
+return `${sender} wins! ${senderMove} beats ${targetMove}. Oh, you’re the true master of the universe! 💥`;
+} else {
+return `${target} wins! ${targetMove} beats ${senderMove}. Looks like they outsmarted you this time! 🤔`;
+}
+}
+
+// ===========================================
+// 🎮 HIGH OR LOW
+// ===========================================
+
 function highOrLow(sender, target) {
-  const secretNumber = Math.floor(Math.random() * 100) + 1;
-  let result = "";
+const secretNumber = Math.floor(Math.random() * 100) + 1;
+let result = "";
 
-  if (sender.toLowerCase() === "higher" && secretNumber > 50) {
-    result = `${sender} wins! The secret number was ${secretNumber}, which is higher than 50. Call it a win for your intuition! 🔮`;
-  } else if (sender.toLowerCase() === "lower" && secretNumber <= 50) {
-    result = `${sender} wins! The secret number was ${secretNumber}, which is lower than 50. Looks like you have the magic touch! ✨`;
-  } else {
-    result = `${target} wins! The secret number was ${secretNumber}, and ${sender} guessed wrong. Better luck next time! 🎯`;
-  }
+if (sender.toLowerCase() === "higher" && secretNumber > 50) {
+result = `${sender} wins! The secret number was ${secretNumber}, which is higher than 50. Call it a win for your intuition! 🔮`;
+} else if (sender.toLowerCase() === "lower" && secretNumber <= 50) {
+result = `${sender} wins! The secret number was ${secretNumber}, which is lower than 50. Looks like you have the magic touch! ✨`;
+} else {
+result = `${target} wins! The secret number was ${secretNumber}, and ${sender} guessed wrong. Better luck next time! 🎯`;
+}
 
-  return result;
+return result;
 }
 
 // ===========================================
@@ -412,6 +424,7 @@ const piracy = {
 // ===========================================
 // 🐾 ANIMAL VIBES
 // ===========================================
+
 const animal = {
   animal: {
     list: [
@@ -426,6 +439,7 @@ const animal = {
 // ===========================================
 // 🍹 DRINK VIBES
 // ===========================================
+
 const drink = {
   drink: {
     list: [
@@ -441,6 +455,7 @@ const drink = {
 // ===========================================
 // 🎨 COLORS
 // ===========================================
+
 const colors = {
   colors: {
     list: [
@@ -454,6 +469,7 @@ const colors = {
 // ===========================================
 // 🧘 AURA VIBES
 // ===========================================
+
 const auravibes = {
   auravibes: {
     list: [
@@ -467,6 +483,7 @@ const auravibes = {
 // ===========================================
 // 🏴 PIRATE VIBES
 // ===========================================
+
 const piratevibes = {
   piratevibes: {
     list: [
@@ -481,6 +498,7 @@ const piratevibes = {
 // ===========================================
 // 🧙 WIZARD VIBES
 // ===========================================
+
 const wizardvibes = {
   wizardvibes: {
     list: [
@@ -494,6 +512,7 @@ const wizardvibes = {
 // ===========================================
 // 👗 DAILY OUTFIT / STYLE
 // ===========================================
+
 const outfits = {
   outfits: {
     list: [
@@ -507,6 +526,7 @@ const outfits = {
 // ===========================================
 // ⚡ ELEMENTAL AFFINITY
 // ===========================================
+
 const elements = {
   elements: {
     list: ["🔥 Fire", "💧 Water", "🌱 Earth", "💨 Air", "⚡ Lightning", "❄️ Ice", "🌌 Void"],
@@ -517,6 +537,7 @@ const elements = {
 // ===========================================
 // ⚡ DAILY POWER / ABILITY
 // ===========================================
+
 const powers = {
   powers: {
     list: [
@@ -530,6 +551,7 @@ const powers = {
 // ===========================================
 // 🏴 PIRATE OUTFITS / ACCESSORIES
 // ===========================================
+
 const pirateoutfits = {
   pirateoutfits: {
     list: [
@@ -543,6 +565,7 @@ const pirateoutfits = {
 // ===========================================
 // 🧙 WIZARD ITEMS / ACCESSORIES
 // ===========================================
+
 const wizarditems = {
   wizarditems: {
     list: [
@@ -556,6 +579,7 @@ const wizarditems = {
 // ===========================================
 // 🌟 ELEMENTAL ITEMS / ACCESSORIES
 // ===========================================
+
 const elementalitems = {
   elementalitems: {
     list: [
@@ -569,6 +593,7 @@ const elementalitems = {
 // ===========================================
 // 🧘 AURA ACCESSORIES
 // ===========================================
+
 const auraitems = {
   auraitems: {
     list: [
@@ -818,6 +843,11 @@ low: ["You dropped your compass. 🧭", "Your ship is still in dock. 🚢"],
 medium: ["You are swashbuckling nicely. ⚓", "The crew respects you. 👑"],
 high: ["Captain material! 🏴‍☠️", "The seas whisper your name! 🌊"],
 },
+captain: {
+low: ["You’ve lost your map, Captain. 🗺️","Your crew is questioning your orders. ☠️","Even the parrot isn’t listening today. 🦜",],
+medium: ["The ship sails steady under your command. ⚓","Your crew follows your orders with pride. 🏴‍☠️","You steer true through calm and storm alike. 🌊",],
+high: ["All hail the legendary Captain! 👑","Your name echoes across the seven seas! 🌅","Even Davy Jones salutes your command! 🏴‍☠️",],
+},
 treasure_hunting: {
 low: ["Ye found an empty chest... again. 🪣", "Turns out the 'X' was bird poop. 🕊️"],
 medium: ["You dug up some fine silver doubloons! 💰", "Aye, your shovel arm be strong today! ⛏️"],
@@ -1038,7 +1068,6 @@ low: ["Not much excitement today, maybe try something new? 🌱", "You're just w
 medium: ["You're getting excited, just a little more! ⚡", "Some excitement is building up! 😆"],
 high: ["You're practically bouncing with excitement! 🤩", "You’re so excited, it’s contagious! 😜"],
 },
-// Category-level jokes
 love_group: {
 low: ["barely noticed you today. 🙄", "is ignoring you again. 🤷‍♂️"],
 medium: ["seems to like you okay. 🙂", "shared a little love. 💘"],
@@ -1365,14 +1394,16 @@ return pickRandom(outcomes);
 // ===========================================
 // 🧠 MAIN CODE ROUTE
 // ===========================================
+
 // ===========================================
 // 📅 DAILY STORAGE & COUNTERS
 // ===========================================
 
-const aspectsOfTheDay = { daddy: {}, pp: {}, bb: {}, princess: {}, goodgirl: {}, catmom: {}, stinker: {}, pirate: {}, captain: {}, animal: {}, drink: {} }; // storage for "of the Day" 
-const lock = {}; // lock mechanism 
-const statCounters = {}; // { username: { command: count } }
-const commandCounters = {}; // { command: totalCount }
+const aspectsOfTheDay = { daddy: {}, pp: {}, bb: {}, princess: {}, goodgirl: {}, catmom: {}, stinker: {}, pirate: {}, captain: {}, animal: {}, drink: {} };
+const wordsOfTheDay = { waffles: {} };
+const lock = {}; 
+const statCounters = {};
+const commandCounters = {};
 
 app.get("/", (req, res) => {
 const senderRaw = req.query.sender || req.query.user || "someone";
@@ -1444,23 +1475,78 @@ return res.send(message);
 }
 
 // ===========================================
-// 🏴‍☠️ CAPTAIN & CAPTAIN OF THE DAY
+// 🏴‍☠️ SOTFEST COUNTDOWN 🏴‍☠️
+// ===========================================
+
+if (type === "sotfest") {
+const now = new Date();
+const currentYear = now.getFullYear();
+
+let eventDate = new Date(`${currentYear}-07-10T00:00:00`);
+
+if (now > eventDate) {
+eventDate = new Date(`${currentYear + 1}-07-10T00:00:00`);
+}
+const diffMs = eventDate - now;
+const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+const diffHours = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
+const diffMinutes = Math.floor((diffMs / (1000 * 60)) % 60);
+
+const message =
+`🏴‍☠️ Ahoy, ${senderDisplay}! The grand **SOTFEST** be drawin’ near!\n` +
+`⏳ There be **${diffDays} days**, **${diffHours} hours**, and **${diffMinutes} minutes** ` +
+`’til we set sail on **July 10th**, ye salty sea-dog! 🍻⚓`;
+
+return res.send(message);
+}
+
+// ===========================================
+// WORD TRACKER - WAFFLES
+// ===========================================
+
+wordsOfTheDay.waffles[today] = wordsOfTheDay.waffles[today] || { count: 0 };
+
+if (type === "addwaffles") {
+wordsOfTheDay.waffles[today].count += 1;
+statCounters[sender] = statCounters[sender] || {};
+statCounters[sender]["addwaffles"] = (statCounters[sender]["addwaffles"] || 0) + 1;
+commandCounters["addwaffles"] = (commandCounters["addwaffles"] || 0) + 1;
+return res.send(`${senderRaw} has added "waffles" +1. Total "waffles" count today: ${wordsOfTheDay.waffles[today].count}.`);
+}
+if (type === "removewaffles") {
+if (wordsOfTheDay.fluffy[today].count > 0) {
+wordsOfTheDay.fluffy[today].count -= 1;
+statCounters[sender] = statCounters[sender] || {};
+statCounters[sender]["removewaffles"] = (statCounters[sender]["removewaffles"] || 0) + 1;
+commandCounters["removewaffles"] = (commandCounters["removewaffles"] || 0) + 1;
+return res.send(`${senderRaw} has removed "waffles" -1. Total "waffles" count today: ${wordsOfTheDay.fluffy[today].count}.`);
+} else {
+return res.send(`The "Fluffy" count is already 0. Cannot remove further.`);
+}
+}
+if (type === "waffles") {
+const count = wordsOfTheDay.waffles[today].count;
+return res.send(`"waffles" has been said ${count} time${count !== 1 ? "s" : ""} today!.`);
+}
+
+// ===========================================
+// ⚓ CAPTAIN & 🏴‍☠️ CAPTAIN OF THE DAY
 // ===========================================
 
 if (type === "captain") {
-  const cfg = piracy.captain; // single stat only
+  const cfg = piracy.captain;
   value = generateValue(seed, type, cfg.max, cfg.min, sender);
   const space = spaceIf(cfg.unitSpace);
 
+  let level = "low";
+  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
+  if (value > cfg.levels[1]) level = "high";
+
   if (value === 100 && !aspectsOfTheDay.captain[today]) {
     aspectsOfTheDay.captain[today] = { user: sender, value };
-    message = `🏴‍☠️ ${senderDisplay}, ye stand tall at **100% Captain Power!** You are the *Captain of the Day!* ⚓️`;
-  } else if (value < 30) {
-    message = `☠️ ${senderDisplay}, ye barely passed cabin boy trials at ${value}${space}!`;
-  } else if (value < 70) {
-    message = `⚓ ${senderDisplay}, ye be a fine deckhand with ${value}${space} Captain prowess. Keep climbin’ the ranks!`;
+    message = `⚓ Ahoy, Captain ${senderDisplay}! 🏴‍☠️ Your command of the seas be flawless at 100%! 🍻 You are the *Captain of the Day!* 👑`;
   } else {
-    message = `🏴‍☠️ ${senderDisplay}, the seas call your name with ${value}${space}% Captain power today!`;
+    message = `⚓ Captain ${senderDisplay}, your Leadership Level be ${value}${space}% today! ${getJoke(req, type, value)} 🦜 Steady as she goes!`;
   }
 
   // Track usage
@@ -1474,8 +1560,8 @@ if (type === "captainofday") {
   const winner = aspectsOfTheDay.captain[today];
   return res.send(
     winner
-      ? `🏴‍☠️ The *Captain of the Day* be ${formatDisplayName(winner.user)}! Raise the black flag and salute! ⚓️`
-      : "There be no Captain of the Day yet! Who will seize the helm? 🏴‍☠️"
+      ? `🏴‍☠️ The Captain of the Day be ${formatDisplayName(winner.user)}! ⚓ May calm seas and loyal crew follow yer command! 🌊`
+      : "☠️ There be no Captain of the Day yet! Hoist yer sails and take the helm, ye bold soul! 🦜"
   );
 }
 
@@ -1484,31 +1570,35 @@ if (type === "captainofday") {
 // ===========================================
 
 if (type === "pirate") {
-  const cfg = piracy.pirate;
-  value = generateValue(seed, type, cfg.max, cfg.min, sender);
-  const space = spaceIf(cfg.unitSpace);
+const cfg = piracy.pirate;
+value = generateValue(seed, type, cfg.max, cfg.min, sender);
+const space = spaceIf(cfg.unitSpace);
 
-  if (value === 100 && !aspectsOfTheDay.pirate[today]) {
-    aspectsOfTheDay.pirate[today] = { user: sender, value };
-    message = `🏴‍☠️ Ahoy ${senderDisplay}! ☠️ Your Pirate Level be at a mighty 100%! ⚓️ You are the *Pirate of the Day*! 🏆🍻`;
-  } else {
-    message = `🏴‍☠️ ${senderDisplay}, your Pirate Level be ${value}${space}% today! 🦜${getJoke(req, type, value)} Arrr!`;
-  }
+let level = "low";
+if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
+if (value > cfg.levels[1]) level = "high";
 
-  // Track usage
-  statCounters[sender] = statCounters[sender] || {};
-  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-  commandCounters[type] = (commandCounters[type] || 0) + 1;
-  return res.send(message);
+if (value === 100 && !aspectsOfTheDay.pirate[today]) {
+aspectsOfTheDay.pirate[today] = { user: sender, value };
+message = `🏴‍☠️ Ahoy ${senderDisplay}! ☠️ Your Pirate Level be at a mighty 100%! ⚓️ You are the *Pirate of the Day*! 🏆🍻`;
+} else {
+message = `🏴‍☠️ ${senderDisplay}, your Pirate Level be ${value}${space}% today! 🦜${getJoke(req, type, value)} Arrr!`;
+}
+
+// Track usage
+statCounters[sender] = statCounters[sender] || {};
+statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+commandCounters[type] = (commandCounters[type] || 0) + 1;
+return res.send(message);
 }
 
 if (type === "pirateofday") {
-  const winner = aspectsOfTheDay.pirate[today];
-  return res.send(
-    winner
-      ? `🏴‍☠️☠️ The Pirate of the Day be ${formatDisplayName(winner.user)}! ⚓️ May the seas bow before ye! 🌊`
-      : "☠️ There be no Pirate of the Day yet! Raise yer sails and earn yer title, ye scallywag! 🦜"
-  );
+const winner = aspectsOfTheDay.pirate[today];
+return res.send(
+winner
+? `🏴‍☠️☠️ The Pirate of the Day be ${formatDisplayName(winner.user)}! ⚓️ May the seas bow before ye! 🌊`
+: "☠️ There be no Pirate of the Day yet! Raise yer sails and earn yer title, ye scallywag! 🦜"
+);
 }
 
 // ===========================================
@@ -1520,77 +1610,64 @@ const cfg = stats.pp;
 value = generateValue(seed, type, cfg.max, cfg.min, sender);
 const space = spaceIf(cfg.unitSpace);
 
+let level = "low";
+if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
+if (value > cfg.levels[1]) level = "high";
+
 if (value === 15 && !aspectsOfTheDay.pp[today]) {
 aspectsOfTheDay.pp[today] = { user: sender, value };
 message = `${senderDisplay}, your PP is exactly 15 inches today! 🎉 You are the PP of the Day!`;
 } else {
-message = `${senderDisplay}, your PP is ${value}${space}inches today!${getJoke(req, type, value)}`;
+message = `${senderDisplay}, your PP is ${value}${space}inches today! ${getJoke(req, type, value, cfg)}`;
 }
 
-// Track usage
 statCounters[sender] = statCounters[sender] || {};
 statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
 commandCounters[type] = (commandCounters[type] || 0) + 1;
 return res.send(message);
 }
 
-if (type === "ppofday") {
-const winner = aspectsOfTheDay.pp[today];
-return res.send(
-winner
-? `🍆 The PP of the Day is ${formatDisplayName(winner.user)}!`
-: "There is no PP of the Day yet!"
-);
-}
-
 // ===========================================
-// 👙 BB (BOOB SIZE) & BB OF THE DAY
+// 👙 BB (Boob Size) & BB OF THE DAY
 // ===========================================
 
 if (type === "bb") {
-  const cfg = stats.bb;
-  
-  // Generate random band & cup indices
-  const bandIndex = generateValue(seed, type + "_band", cfg.bands.length - 1, 0, sender);
-  const cupIndex = generateValue(seed, type + "_cup", cfg.cups.length - 1, 0, sender);
-  const band = cfg.bands[bandIndex];
-  const cup = cfg.cups[cupIndex];
-  const size = `${band}${cup}`;
+const cfg = stats.bb;
 
-  // Map cups to numeric weights for joke scaling
-  const cupWeights = { A: 1, B: 2, C: 3, D: 4, DD: 5, E: 6, F: 7 };
-  const numericSize = band + (cupWeights[cup] || 0) * 2; // multiplier adjusts scaling
+const bandIndex = generateValue(seed, type + "_band", cfg.bands.length - 1, 0, sender);
+const cupIndex = generateValue(seed, type + "_cup", cfg.cups.length - 1, 0, sender);
+const band = cfg.bands[bandIndex];
+const cup = cfg.cups[cupIndex];
+const size = `${band}${cup}`;
 
-  // Universal joke cfg for bb
-  const jokeCfg = { 
-    min: cfg.bands[0] + (cupWeights[cfg.cups[0]] || 0) * 2, 
-    max: cfg.bands[cfg.bands.length - 1] + (cupWeights[cfg.cups[cfg.cups.length - 1]] || 0) * 2, 
-    levels: [35, 50] // scale for low/medium/high
-  };
+const cupWeights = { A: 1, B: 2, C: 3, D: 4, DD: 5, E: 6, F: 7 };
+const numericSize = band + (cupWeights[cup] || 0); 
 
-  // Boob of the Day: biggest size automatically wins
-  const biggestSize = `${cfg.bands[cfg.bands.length - 1]}${cfg.cups[cfg.cups.length - 1]}`; // 42F
+const jokeCfg = { 
+min: cfg.bands[0] + (cupWeights[cfg.cups[0]] || 0),
+max: cfg.bands[cfg.bands.length - 1] + (cupWeights[cfg.cups[cfg.cups.length - 1]] || 0),
+levels: [36, 45]
+};
 
-  if (size === biggestSize && !aspectsOfTheDay.bb[today]) {
-    aspectsOfTheDay.bb[today] = { user: sender, size };
-    message = `${senderDisplay}, your size is ${size} today! 🎀 You are the Boob of the Day!`;
-  } else {
-    message = `${senderDisplay}, your boob size is ${size} today!${getJoke(req, type, numericSize, jokeCfg)}`;
-  }
+let level;
+if (numericSize <= jokeCfg.levels[0]) level = "low"; 
+else if (numericSize <= jokeCfg.levels[1]) level = "medium"; 
+else level = "high";
 
-  statCounters[sender] = statCounters[sender] || {};
-  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-  commandCounters[type] = (commandCounters[type] || 0) + 1;
-  return res.send(message);
+const biggestSize = `${cfg.bands[cfg.bands.length - 1]}${cfg.cups[cfg.cups.length - 1]}`;
+
+if (size === biggestSize && !aspectsOfTheDay.bb[today]) {
+aspectsOfTheDay.bb[today] = { user: sender, size };
+message = `${senderDisplay}, your size is ${size} today! 🎀 You are the Boob of the Day!`;
+} else {
+const joke = jokes[type][level] ? pickRandom(jokes[type][level]) : "No joke found for your size!";
+message = `${senderDisplay}, your boob size is ${size} today! ${joke}`;
 }
 
-if (type === "bbofday") {
-  const winner = aspectsOfTheDay.bb[today];
-  return res.send(
-    winner
-      ? `👑 The Boob of the Day is ${formatDisplayName(winner.user)} (${winner.size})!`
-      : "There is no Boob of the Day yet!"
-  );
+statCounters[sender] = statCounters[sender] || {};
+statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+commandCounters[type] = (commandCounters[type] || 0) + 1;
+return res.send(message);
 }
 
 // ===========================================
@@ -1598,30 +1675,34 @@ if (type === "bbofday") {
 // ===========================================
 
 if (type === "daddy") {
-const cfg = stats.daddy;
-value = generateValue(seed, type, cfg.max, cfg.min, sender);
-const space = spaceIf(cfg.unitSpace);
+  const cfg = stats.daddy;
+  value = generateValue(seed, type, cfg.max, cfg.min, sender);
+  const space = spaceIf(cfg.unitSpace);
 
-if (value === 100 && !aspectsOfTheDay.daddy[today]) {
-aspectsOfTheDay.daddy[today] = { user: sender, value };
-message = `${senderDisplay}, your Daddy Level is 100%! 🎉 You are the Daddy of the Day!`;
-} else {
-message = `${senderDisplay}, your Daddy Level is ${value}${space}% today!${getJoke(req, type, value)}`;
-}
+  let level = "low";
+  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
+  if (value > cfg.levels[1]) level = "high";
 
-statCounters[sender] = statCounters[sender] || {};
-statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-commandCounters[type] = (commandCounters[type] || 0) + 1;
-return res.send(message);
+  if (value === 100 && !aspectsOfTheDay.daddy[today]) {
+    aspectsOfTheDay.daddy[today] = { user: sender, value };
+    message = `${senderDisplay}, your Daddy Level is 100%! 🎉 You are the Daddy of the Day!`;
+  } else {
+    message = `${senderDisplay}, your Daddy Level is ${value}${space}% today! ${getJoke(req, type, value, cfg)}`;
+  }
+
+  statCounters[sender] = statCounters[sender] || {};
+  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+  commandCounters[type] = (commandCounters[type] || 0) + 1;
+  return res.send(message);
 }
 
 if (type === "dadofday") {
-const winner = aspectsOfTheDay.daddy[today];
-return res.send(
-winner
-? `🦸‍♂️ The Daddy of the Day is ${formatDisplayName(winner.user)}!`
-: "There is no Daddy of the Day yet!"
-);
+  const winner = aspectsOfTheDay.daddy[today];
+  return res.send(
+    winner
+      ? `🦸‍♂️ The Daddy of the Day is ${formatDisplayName(winner.user)}!`
+      : "There is no Daddy of the Day yet!"
+  );
 }
 
 // ===========================================
@@ -1629,30 +1710,34 @@ winner
 // ===========================================
 
 if (type === "catmom") {
-const cfg = stats.catmom;
-value = generateValue(seed, type, cfg.max, cfg.min, sender);
-const space = spaceIf(cfg.unitSpace);
+  const cfg = stats.catmom;
+  value = generateValue(seed, type, cfg.max, cfg.min, sender);
+  const space = spaceIf(cfg.unitSpace);
 
-if (value === 100 && !aspectsOfTheDay.catmom[today]) {
-aspectsOfTheDay.catmom[today] = { user: sender, value };
-message = `${senderDisplay}, your Cat Mom Level is 100%! 🎉 You are the Cat Mom of the Day!`;
-} else {
-message = `${senderDisplay}, your Cat Mom Level is ${value}${space}% today!${getJoke(req, type, value)}`;
-}
+  let level = "low";
+  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
+  if (value > cfg.levels[1]) level = "high";
 
-statCounters[sender] = statCounters[sender] || {};
-statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-commandCounters[type] = (commandCounters[type] || 0) + 1;
-return res.send(message);
+  if (value === 100 && !aspectsOfTheDay.catmom[today]) {
+    aspectsOfTheDay.catmom[today] = { user: sender, value };
+    message = `${senderDisplay}, your Cat Mom Level is 100%! 🎉 You are the Cat Mom of the Day!`;
+  } else {
+    message = `${senderDisplay}, your Cat Mom Level is ${value}${space}% today! ${getJoke(req, type, value, cfg)}`;
+  }
+
+  statCounters[sender] = statCounters[sender] || {};
+  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+  commandCounters[type] = (commandCounters[type] || 0) + 1;
+  return res.send(message);
 }
 
 if (type === "catmomofday") {
-const winner = aspectsOfTheDay.catmom[today];
-return res.send(
-winner
-? `🦸‍♂️ The Cat Mom of the Day is ${formatDisplayName(winner.user)}!`
-: "There is no Cat Mom of the Day yet!"
-);
+  const winner = aspectsOfTheDay.catmom[today];
+  return res.send(
+    winner
+      ? `🦸‍♂️ The Cat Mom of the Day is ${formatDisplayName(winner.user)}!`
+      : "There is no Cat Mom of the Day yet!"
+  );
 }
 
 // ===========================================
@@ -1660,30 +1745,34 @@ winner
 // ===========================================
 
 if (type === "stinker") {
-const cfg = stats.stinker;
-value = generateValue(seed, type, cfg.max, cfg.min, sender);
-const space = spaceIf(cfg.unitSpace);
+  const cfg = stats.stinker;
+  value = generateValue(seed, type, cfg.max, cfg.min, sender);
+  const space = spaceIf(cfg.unitSpace);
 
-if (value === 100 && !aspectsOfTheDay.stinker[today]) {
-aspectsOfTheDay.stinker[today] = { user: sender, value };
-message = `${senderDisplay}, your Fart Level is 100%! 🎉 You are the Stinker of the Day!`;
-} else {
-message = `${senderDisplay}, your Fart Level is ${value}${space}% today!${getJoke(req, type, value)}`;
-}
+  let level = "low";
+  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
+  if (value > cfg.levels[1]) level = "high";
 
-statCounters[sender] = statCounters[sender] || {};
-statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-commandCounters[type] = (commandCounters[type] || 0) + 1;
-return res.send(message);
+  if (value === 100 && !aspectsOfTheDay.stinker[today]) {
+    aspectsOfTheDay.stinker[today] = { user: sender, value };
+    message = `${senderDisplay}, your Fart Level is 100%! 🎉 You are the Stinker of the Day!`;
+  } else {
+    message = `${senderDisplay}, your Fart Level is ${value}${space}% today! ${getJoke(req, type, value, cfg)}`;
+  }
+
+  statCounters[sender] = statCounters[sender] || {};
+  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+  commandCounters[type] = (commandCounters[type] || 0) + 1;
+  return res.send(message);
 }
 
 if (type === "stinkerofday") {
-const winner = aspectsOfTheDay.stinker[today];
-return res.send(
-winner
-? `🦸‍♂️ The Stinker of the Day is ${formatDisplayName(winner.user)}!`
-: "There is no Stinker of the Day yet!"
-);
+  const winner = aspectsOfTheDay.stinker[today];
+  return res.send(
+    winner
+      ? `🦸‍♂️ The Stinker of the Day is ${formatDisplayName(winner.user)}!`
+      : "There is no Stinker of the Day yet!"
+  );
 }
 
 // ===========================================
@@ -1691,33 +1780,35 @@ winner
 // ===========================================
 
 if (type === "princess") {
-const cfg = stats.princess;
-value = generateValue(seed, type, cfg.max, cfg.min, sender);
-value = Math.round(value);
-const space = spaceIf(cfg.unitSpace);
+  const cfg = stats.princess;
+  value = generateValue(seed, type, cfg.max, cfg.min, sender);
+  value = Math.round(value);
+  const space = spaceIf(cfg.unitSpace);
 
-// Only assign Princess of the Day if value is 100 and not already set
-if (value === 100 && !aspectsOfTheDay.princess[today]) {
-aspectsOfTheDay.princess[today] = { user: sender, value };
-message = `${senderDisplay}, your Princess Level is ${value}${space}% today! 👑 You are the Princess of the Day! 🎉`;
-} else {
-message = `${senderDisplay}, your Princess Level is ${value}${space}% today!${getJoke(req, type, value)}`;
+  let level = "low";
+  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
+  if (value > cfg.levels[1]) level = "high";
+
+  if (value === 100 && !aspectsOfTheDay.princess[today]) {
+    aspectsOfTheDay.princess[today] = { user: sender, value };
+    message = `${senderDisplay}, your Princess Level is ${value}${space}% today! 👑 You are the Princess of the Day! 🎉`;
+  } else {
+    message = `${senderDisplay}, your Princess Level is ${value}${space}% today! ${getJoke(req, type, value, cfg)}`;
+  }
+
+  statCounters[sender] = statCounters[sender] || {};
+  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+  commandCounters[type] = (commandCounters[type] || 0) + 1;
+
+  return res.send(message);
 }
-
-statCounters[sender] = statCounters[sender] || {};
-statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-commandCounters[type] = (commandCounters[type] || 0) + 1;
-
-return res.send(message);
-}
-
 if (type === "princessofday") {
-const winner = aspectsOfTheDay.princess[today];
-return res.send(
-winner
-? `👑 The Princess of the Day is ${formatDisplayName(winner.user)}!`
-: "There is no Princess of the Day yet!"
-);
+  const winner = aspectsOfTheDay.princess[today];
+  return res.send(
+    winner
+      ? `👑 The Princess of the Day is ${formatDisplayName(winner.user)}!`
+      : "There is no Princess of the Day yet!"
+  );
 }
 
 // ===========================================
@@ -1725,33 +1816,36 @@ winner
 // ===========================================
 
 if (type === "goodgirl") {
-const cfg = stats.goodgirl;
-value = generateValue(seed, type, cfg.max, cfg.min, sender);
-value = Math.round(value);
-const space = spaceIf(cfg.unitSpace);
+  const cfg = stats.goodgirl;
+  value = generateValue(seed, type, cfg.max, cfg.min, sender);
+  value = Math.round(value);
+  const space = spaceIf(cfg.unitSpace);
 
-// Only assign Good Girl of the Day if value is 100 and not already set
-if (value === 100 && !aspectsOfTheDay.goodgirl[today]) {
-aspectsOfTheDay.goodgirl[today] = { user: sender, value };
-message = `${senderDisplay}, your Good Girl Level is ${value}${space}% today! 🐶 You are the Good Girl of the Day! 🎉`;
-} else {
-message = `${senderDisplay}, your Good Girl Level is ${value}${space}% today!${getJoke(req, type, value)}`;
-}
+  let level = "low";
+  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
+  if (value > cfg.levels[1]) level = "high";
 
-statCounters[sender] = statCounters[sender] || {};
-statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-commandCounters[type] = (commandCounters[type] || 0) + 1;
+  if (value === 100 && !aspectsOfTheDay.goodgirl[today]) {
+    aspectsOfTheDay.goodgirl[today] = { user: sender, value };
+    message = `${senderDisplay}, your Good Girl Level is ${value}${space}% today! 🐶 You are the Good Girl of the Day! 🎉`;
+  } else {
+    message = `${senderDisplay}, your Good Girl Level is ${value}${space}% today! ${getJoke(req, type, value, cfg)}`;
+  }
 
-return res.send(message);
+  statCounters[sender] = statCounters[sender] || {};
+  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+  commandCounters[type] = (commandCounters[type] || 0) + 1;
+
+  return res.send(message);
 }
 
 if (type === "goodgirlofday") {
-const winner = aspectsOfTheDay.goodgirl[today];
-return res.send(
-winner
-? `🐶 The Good Girl of the Day is ${formatDisplayName(winner.user)}!`
-: "There is no Good Girl of the Day yet!"
-);
+  const winner = aspectsOfTheDay.goodgirl[today];
+  return res.send(
+    winner
+      ? `🐶 The Good Girl of the Day is ${formatDisplayName(winner.user)}!`
+      : "There is no Good Girl of the Day yet!"
+  );
 }
 
 // ===========================================
@@ -1759,72 +1853,73 @@ winner
 // ===========================================
 
 if (type === "animal") {
-  const cfg = animal.animal;
-  const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
-  const chosen = cfg.list[index];
-  const joke = jokes.animal[index];
+const cfg = animal.animal;
+const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
+const chosen = cfg.list[index];
+const joke = jokes.animal[index];
 
-  if (!aspectsOfTheDay.animal) aspectsOfTheDay.animal = {};
+if (!aspectsOfTheDay.animal) aspectsOfTheDay.animal = {};
 
-  if (chosen.toLowerCase().includes("unicorn") && !aspectsOfTheDay.animal[today]) {
-    aspectsOfTheDay.animal[today] = { user: sender, chosen };
-    message = `🐾 ${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke} 🏆 You are the *Animal of the Day!* 🎉`;
-  } else if (aspectsOfTheDay.animal[today]?.user === sender) {
-    message = `🐾 ${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke} 👑 You’re still reigning *Animal of the Day!*`;
-  } else {
-    message = `🐾 ${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
-  }
+if (chosen.toLowerCase().includes("unicorn") && !aspectsOfTheDay.animal[today]) {
+aspectsOfTheDay.animal[today] = { user: sender, chosen };
+message = `🐾 ${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke} 🏆 You are the *Animal of the Day!* 🎉`;
+} else if (aspectsOfTheDay.animal[today]?.user === sender) {
+message = `🐾 ${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke} 👑 You’re still reigning *Animal of the Day!*`;
+} else {
+message = `🐾 ${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
+}
 
-  statCounters[sender] = statCounters[sender] || {};
-  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-  commandCounters[type] = (commandCounters[type] || 0) + 1;
+statCounters[sender] = statCounters[sender] || {};
+statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+commandCounters[type] = (commandCounters[type] || 0) + 1;
 
-  return res.send(message);
+return res.send(message);
 }
 
 if (type === "animalofday") {
-  const winner = aspectsOfTheDay.animal?.[today];
-  return res.send(
-    winner
-      ? `🐾 The Animal of the Day is ${formatDisplayName(winner.user)} — a majestic ${winner.chosen}! 👑`
-      : "🐾 There is no Animal of the Day yet! Be the first to roar! 🦁"
-  );
+const winner = aspectsOfTheDay.animal?.[today];
+return res.send(
+winner
+? `🐾 The Animal of the Day is ${formatDisplayName(winner.user)} — a majestic ${winner.chosen}! 👑`
+: "🐾 There is no Animal of the Day yet! Be the first to roar! 🦁"
+);
 }
 
 // ===========================================
 // 🍹 DRINK & DRINK OF THE DAY
 // ===========================================
+
 if (type === "drink") {
-  const cfg = drink.drink;
-  const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
-  const chosen = cfg.list[index];
-  const joke = jokes.drink[index];
+const cfg = drink.drink;
+const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
+const chosen = cfg.list[index];
+const joke = jokes.drink[index];
 
-  if (!aspectsOfTheDay.drink) aspectsOfTheDay.drink = {};
+if (!aspectsOfTheDay.drink) aspectsOfTheDay.drink = {};
 
-  if (chosen.toLowerCase().includes("🍸 martini") && !aspectsOfTheDay.drink[today]) {
-    aspectsOfTheDay.drink[today] = { user: sender, chosen };
-    message = `🍹 ${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke} 🏆 You are the *Drink of the Day!* 🎉`;
-  } else if (aspectsOfTheDay.drink[today]?.user === sender) {
-    message = `🍹 ${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke} 👑 You’re still reigning *Drink of the Day!*`;
-  } else {
-    message = `🍹 ${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
-  }
+if (chosen.toLowerCase().includes("🍸 martini") && !aspectsOfTheDay.drink[today]) {
+aspectsOfTheDay.drink[today] = { user: sender, chosen };
+message = `🍹 ${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke} 🏆 You are the *Drink of the Day!* 🎉`;
+} else if (aspectsOfTheDay.drink[today]?.user === sender) {
+message = `🍹 ${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke} 👑 You’re still reigning *Drink of the Day!*`;
+} else {
+message = `🍹 ${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
+}
 
-  statCounters[sender] = statCounters[sender] || {};
-  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-  commandCounters[type] = (commandCounters[type] || 0) + 1;
+statCounters[sender] = statCounters[sender] || {};
+statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+commandCounters[type] = (commandCounters[type] || 0) + 1;
 
-  return res.send(message);
+return res.send(message);
 }
 
 if (type === "drinkoofday") {
-  const winner = aspectsOfTheDay.drink?.[today];
-  return res.send(
-    winner
-      ? `🍹 The Drink of the Day is ${formatDisplayName(winner.user)} — ${winner.chosen}! 🏆`
-      : "🍹 There is no Drink of the Day yet! Be the first to sip! 🍸"
-  );
+const winner = aspectsOfTheDay.drink?.[today];
+return res.send(
+winner
+? `🍹 The Drink of the Day is ${formatDisplayName(winner.user)} — ${winner.chosen}! 🏆`
+: "🍹 There is no Drink of the Day yet! Be the first to sip! 🍸"
+);
 }
 
 // ===========================================
@@ -1832,17 +1927,17 @@ if (type === "drinkoofday") {
 // ===========================================
 
 if (colors[type]) {
-  const cfg = colors[type];
-  const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
-  const chosen = cfg.list[index];
-  const joke = jokes.colors?.[index] || "";
+const cfg = colors[type];
+const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
+const chosen = cfg.list[index];
+const joke = jokes.colors?.[index] || "";
 
-  message = `${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
-  statCounters[sender] = statCounters[sender] || {};
-  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-  commandCounters[type] = (commandCounters[type] || 0) + 1;
+message = `${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
+statCounters[sender] = statCounters[sender] || {};
+statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+commandCounters[type] = (commandCounters[type] || 0) + 1;
 
-  return res.send(message);
+return res.send(message);
 }
 
 // ===========================================
@@ -1850,17 +1945,17 @@ if (colors[type]) {
 // ===========================================
 
 if (auravibes[type]) {
-  const cfg = auravibes[type];
-  const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
-  const chosen = cfg.list[index];
-  const joke = jokes.auravibes?.[index] || "";
+const cfg = auravibes[type];
+const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
+const chosen = cfg.list[index];
+const joke = jokes.auravibes?.[index] || "";
 
-  message = `${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
-  statCounters[sender] = statCounters[sender] || {};
-  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-  commandCounters[type] = (commandCounters[type] || 0) + 1;
+message = `${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
+statCounters[sender] = statCounters[sender] || {};
+statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+commandCounters[type] = (commandCounters[type] || 0) + 1;
 
-  return res.send(message);
+return res.send(message);
 }
 
 // ===========================================
@@ -1868,17 +1963,17 @@ if (auravibes[type]) {
 // ===========================================
 
 if (piratevibes[type]) {
-  const cfg = piratevibes[type];
-  const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
-  const chosen = cfg.list[index];
-  const joke = jokes.piratevibes?.[index] || "";
+const cfg = piratevibes[type];
+const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
+const chosen = cfg.list[index];
+const joke = jokes.piratevibes?.[index] || "";
 
-  message = `${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
-  statCounters[sender] = statCounters[sender] || {};
-  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-  commandCounters[type] = (commandCounters[type] || 0) + 1;
+message = `${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
+statCounters[sender] = statCounters[sender] || {};
+statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+commandCounters[type] = (commandCounters[type] || 0) + 1;
 
-  return res.send(message);
+return res.send(message);
 }
 
 // ===========================================
@@ -1886,17 +1981,17 @@ if (piratevibes[type]) {
 // ===========================================
 
 if (wizardvibes[type]) {
-  const cfg = wizardvibes[type];
-  const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
-  const chosen = cfg.list[index];
-  const joke = jokes.wizard?.[index] || "";
+const cfg = wizardvibes[type];
+const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
+const chosen = cfg.list[index];
+const joke = jokes.wizard?.[index] || "";
 
-  message = `${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
-  statCounters[sender] = statCounters[sender] || {};
-  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-  commandCounters[type] = (commandCounters[type] || 0) + 1;
+message = `${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
+statCounters[sender] = statCounters[sender] || {};
+statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+commandCounters[type] = (commandCounters[type] || 0) + 1;
 
-  return res.send(message);
+return res.send(message);
 }
 
 // ===========================================
@@ -1904,17 +1999,17 @@ if (wizardvibes[type]) {
 // ===========================================
 
 if (outfits[type]) {
-  const cfg = outfits[type];
-  const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
-  const chosen = cfg.list[index];
-  const joke = jokes.outfits?.[index] || "";
+const cfg = outfits[type];
+const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
+const chosen = cfg.list[index];
+const joke = jokes.outfits?.[index] || "";
 
-  message = `${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
-  statCounters[sender] = statCounters[sender] || {};
-  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-  commandCounters[type] = (commandCounters[type] || 0) + 1;
+message = `${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
+statCounters[sender] = statCounters[sender] || {};
+statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+commandCounters[type] = (commandCounters[type] || 0) + 1;
 
-  return res.send(message);
+return res.send(message);
 }
 
 // ===========================================
@@ -1922,17 +2017,17 @@ if (outfits[type]) {
 // ===========================================
 
 if (elements[type]) {
-  const cfg = elements[type];
-  const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
-  const chosen = cfg.list[index];
-  const joke = jokes.elements?.[index] || "";
+const cfg = elements[type];
+const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
+const chosen = cfg.list[index];
+const joke = jokes.elements?.[index] || "";
 
-  message = `${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
-  statCounters[sender] = statCounters[sender] || {};
-  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-  commandCounters[type] = (commandCounters[type] || 0) + 1;
+message = `${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
+statCounters[sender] = statCounters[sender] || {};
+statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+commandCounters[type] = (commandCounters[type] || 0) + 1;
 
-  return res.send(message);
+return res.send(message);
 }
 
 // ===========================================
@@ -1940,17 +2035,17 @@ if (elements[type]) {
 // ===========================================
 
 if (powers[type]) {
-  const cfg = powers[type];
-  const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
-  const chosen = cfg.list[index];
-  const joke = jokes.powers?.[index] || "";
+const cfg = powers[type];
+const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
+const chosen = cfg.list[index];
+const joke = jokes.powers?.[index] || "";
 
-  message = `${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
-  statCounters[sender] = statCounters[sender] || {};
-  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-  commandCounters[type] = (commandCounters[type] || 0) + 1;
+message = `${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
+statCounters[sender] = statCounters[sender] || {};
+statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+commandCounters[type] = (commandCounters[type] || 0) + 1;
 
-  return res.send(message);
+return res.send(message);
 }
 
 // ===========================================
@@ -1958,17 +2053,17 @@ if (powers[type]) {
 // ===========================================
 
 if (pirateoutfits[type]) {
-  const cfg = pirateoutfits[type];
-  const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
-  const chosen = cfg.list[index];
-  const joke = jokes.pirateoutfits?.[index] || "";
+const cfg = pirateoutfits[type];
+const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
+const chosen = cfg.list[index];
+const joke = jokes.pirateoutfits?.[index] || "";
 
-  message = `${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
-  statCounters[sender] = statCounters[sender] || {};
-  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-  commandCounters[type] = (commandCounters[type] || 0) + 1;
+message = `${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
+statCounters[sender] = statCounters[sender] || {};
+statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+commandCounters[type] = (commandCounters[type] || 0) + 1;
 
-  return res.send(message);
+return res.send(message);
 }
 
 // ===========================================
@@ -1976,17 +2071,17 @@ if (pirateoutfits[type]) {
 // ===========================================
 
 if (wizarditems[type]) {
-  const cfg = wizarditems[type];
-  const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
-  const chosen = cfg.list[index];
-  const joke = jokes.wizarditems?.[index] || "";
+const cfg = wizarditems[type];
+const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
+const chosen = cfg.list[index];
+const joke = jokes.wizarditems?.[index] || "";
 
-  message = `${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
-  statCounters[sender] = statCounters[sender] || {};
-  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-  commandCounters[type] = (commandCounters[type] || 0) + 1;
+message = `${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
+statCounters[sender] = statCounters[sender] || {};
+statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+commandCounters[type] = (commandCounters[type] || 0) + 1;
 
-  return res.send(message);
+return res.send(message);
 }
 
 // ===========================================
@@ -1994,17 +2089,17 @@ if (wizarditems[type]) {
 // ===========================================
 
 if (elementalitems[type]) {
-  const cfg = elementalitems[type];
-  const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
-  const chosen = cfg.list[index];
-  const joke = jokes.elementalitems?.[index] || "";
+const cfg = elementalitems[type];
+const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
+const chosen = cfg.list[index];
+const joke = jokes.elementalitems?.[index] || "";
 
-  message = `${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
-  statCounters[sender] = statCounters[sender] || {};
-  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-  commandCounters[type] = (commandCounters[type] || 0) + 1;
+message = `${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
+statCounters[sender] = statCounters[sender] || {};
+statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+commandCounters[type] = (commandCounters[type] || 0) + 1;
 
-  return res.send(message);
+return res.send(message);
 }
 
 // ===========================================
@@ -2012,17 +2107,17 @@ if (elementalitems[type]) {
 // ===========================================
 
 if (auraitems[type]) {
-  const cfg = auraitems[type];
-  const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
-  const chosen = cfg.list[index];
-  const joke = jokes.auraitems?.[index] || "";
+const cfg = auraitems[type];
+const index = generateValue(seed, type, cfg.list.length - 1, 0, sender);
+const chosen = cfg.list[index];
+const joke = jokes.auraitems?.[index] || "";
 
-  message = `${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
-  statCounters[sender] = statCounters[sender] || {};
-  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-  commandCounters[type] = (commandCounters[type] || 0) + 1;
+message = `${senderDisplay}, your ${cfg.label} today is ${chosen}! ${joke}`;
+statCounters[sender] = statCounters[sender] || {};
+statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+commandCounters[type] = (commandCounters[type] || 0) + 1;
 
-  return res.send(message);
+return res.send(message);
 }
 
 // ===========================================
@@ -2030,15 +2125,20 @@ if (auraitems[type]) {
 // ===========================================
 
 if (stats[type]) {
-const cfg = stats[type];
-value = generateValue(seed, type, cfg.max, cfg.min, sender);
-const space = spaceIf(cfg.unitSpace);
-message = `${senderDisplay}, your ${cfg.label} is ${value}${space}${cfg.unit} today!${getJoke(req, type, value)}`;
+  const cfg = stats[type];
+  value = generateValue(seed, type, cfg.max, cfg.min, sender);
+  const space = spaceIf(cfg.unitSpace);
 
-statCounters[sender] = statCounters[sender] || {};
-statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-commandCounters[type] = (commandCounters[type] || 0) + 1;
-return res.send(message);
+  let level = "low";
+  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
+  if (value > cfg.levels[1]) level = "high";
+
+  message = `${senderDisplay}, your ${cfg.label} is ${value}${space}${cfg.unit} today! ${getJoke(req, type, value, cfg)}`;
+
+  statCounters[sender] = statCounters[sender] || {};
+  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+  commandCounters[type] = (commandCounters[type] || 0) + 1;
+  return res.send(message);
 }
 
 // ===========================================
@@ -2046,14 +2146,20 @@ return res.send(message);
 // ===========================================
 
 if (gym[type]) {
-const cfg = gym[type];
-value = generateValue(seed, type, cfg.max, cfg.min, sender);
-const space = spaceIf(cfg.unitSpace);
-message = `${senderDisplay}, your ${cfg.label} is ${value}${space}${cfg.unit} today!${getJoke(req, type, value)}`;
-statCounters[sender] = statCounters[sender] || {};
-statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-commandCounters[type] = (commandCounters[type] || 0) + 1;
-return res.send(message);
+  const cfg = gym[type];
+  value = generateValue(seed, type, cfg.max, cfg.min, sender);
+  const space = spaceIf(cfg.unitSpace);
+
+  let level = "low";
+  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
+  if (value > cfg.levels[1]) level = "high";
+
+  message = `${senderDisplay}, your ${cfg.label} is ${value}${space}${cfg.unit} today! ${getJoke(req, type, value, cfg)}`;
+
+  statCounters[sender] = statCounters[sender] || {};
+  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+  commandCounters[type] = (commandCounters[type] || 0) + 1;
+  return res.send(message);
 }
 
 // ===========================================
@@ -2061,14 +2167,20 @@ return res.send(message);
 // ===========================================
 
 if (love[type]) {
-const cfg = love[type];
-value = generateValue(seed, type, cfg.max, cfg.min, sender);
-const space = spaceIf(cfg.unitSpace);
-message = `${senderDisplay}, ${cfg.label} ${value}${space}${cfg.unit} today!${getJoke(req, type, value)}`;
-statCounters[sender] = statCounters[sender] || {};
-statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-commandCounters[type] = (commandCounters[type] || 0) + 1;
-return res.send(message);
+  const cfg = love[type];
+  value = generateValue(seed, type, cfg.max, cfg.min, sender);
+  const space = spaceIf(cfg.unitSpace);
+
+  let level = "low";
+  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
+  if (value > cfg.levels[1]) level = "high";
+
+  message = `${senderDisplay}, your ${cfg.label} is ${value}${space}${cfg.unit} today! ${getJoke(req, type, value, cfg)}`;
+
+  statCounters[sender] = statCounters[sender] || {};
+  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+  commandCounters[type] = (commandCounters[type] || 0) + 1;
+  return res.send(message);
 }
 
 // ===========================================
@@ -2076,14 +2188,20 @@ return res.send(message);
 // ===========================================
 
 if (hate[type]) {
-const cfg = hate[type];
-value = generateValue(seed, type, cfg.max, cfg.min, sender);
-const space = spaceIf(cfg.unitSpace);
-message = `${senderDisplay}, ${cfg.label} ${value}${space}${cfg.unit} today!${getJoke(req, type, value)}`;
-statCounters[sender] = statCounters[sender] || {};
-statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-commandCounters[type] = (commandCounters[type] || 0) + 1;
-return res.send(message);
+  const cfg = hate[type];
+  value = generateValue(seed, type, cfg.max, cfg.min, sender);
+  const space = spaceIf(cfg.unitSpace);
+
+  let level = "low";
+  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
+  if (value > cfg.levels[1]) level = "high";
+
+  message = `${senderDisplay}, your ${cfg.label} is ${value}${space}${cfg.unit} today! ${getJoke(req, type, value, cfg)}`;
+
+  statCounters[sender] = statCounters[sender] || {};
+  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+  commandCounters[type] = (commandCounters[type] || 0) + 1;
+  return res.send(message);
 }
 
 // ===========================================
@@ -2091,14 +2209,20 @@ return res.send(message);
 // ===========================================
 
 if (personality[type]) {
-const cfg = personality[type];
-value = generateValue(seed, type, cfg.max, cfg.min, sender);
-const space = spaceIf(cfg.unitSpace);
-message = `${senderDisplay}, your ${cfg.label} is ${value}${space}${cfg.unit} today!${getJoke(req, type, value)}`;
-statCounters[sender] = statCounters[sender] || {};
-statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-commandCounters[type] = (commandCounters[type] || 0) + 1;
-return res.send(message);
+  const cfg = personality[type];
+  value = generateValue(seed, type, cfg.max, cfg.min, sender);
+  const space = spaceIf(cfg.unitSpace);
+
+  let level = "low";
+  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
+  if (value > cfg.levels[1]) level = "high";
+
+  message = `${senderDisplay}, your ${cfg.label} is ${value}${space}${cfg.unit} today! ${getJoke(req, type, value, cfg)}`;
+
+  statCounters[sender] = statCounters[sender] || {};
+  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+  commandCounters[type] = (commandCounters[type] || 0) + 1;
+  return res.send(message);
 }
 
 // ===========================================
@@ -2106,14 +2230,20 @@ return res.send(message);
 // ===========================================
 
 if (emotions[type]) {
-const cfg = emotions[type];
-value = generateValue(seed, type, cfg.max, cfg.min, sender);
-const space = spaceIf(cfg.unitSpace);
-message = `${senderDisplay}, your ${cfg.label} is ${value}${space}${cfg.unit} today!${getJoke(req, type, value)}`;
-statCounters[sender] = statCounters[sender] || {};
-statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-commandCounters[type] = (commandCounters[type] || 0) + 1;
-return res.send(message);
+  const cfg = emotions[type];
+  value = generateValue(seed, type, cfg.max, cfg.min, sender);
+  const space = spaceIf(cfg.unitSpace);
+
+  let level = "low";
+  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
+  if (value > cfg.levels[1]) level = "high";
+
+  message = `${senderDisplay}, your ${cfg.label} is ${value}${space}${cfg.unit} today! ${getJoke(req, type, value, cfg)}`;
+
+  statCounters[sender] = statCounters[sender] || {};
+  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+  commandCounters[type] = (commandCounters[type] || 0) + 1;
+  return res.send(message);
 }
 
 // ===========================================
@@ -2121,14 +2251,20 @@ return res.send(message);
 // ===========================================
 
 if (skills[type]) {
-const cfg = skills[type];
-value = generateValue(seed, type, cfg.max, cfg.min, sender);
-const space = spaceIf(cfg.unitSpace);
-message = `${senderDisplay}, your ${cfg.label} is ${value}${space}${cfg.unit} today!${getJoke(req, type, value)}`;
-statCounters[sender] = statCounters[sender] || {};
-statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-commandCounters[type] = (commandCounters[type] || 0) + 1;
-return res.send(message);
+  const cfg = skills[type];
+  value = generateValue(seed, type, cfg.max, cfg.min, sender);
+  const space = spaceIf(cfg.unitSpace);
+
+  let level = "low";
+  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
+  if (value > cfg.levels[1]) level = "high";
+
+  message = `${senderDisplay}, your ${cfg.label} is ${value}${space}${cfg.unit} today! ${getJoke(req, type, value, cfg)}`;
+
+  statCounters[sender] = statCounters[sender] || {};
+  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+  commandCounters[type] = (commandCounters[type] || 0) + 1;
+  return res.send(message);
 }
 
 // ===========================================
@@ -2136,14 +2272,20 @@ return res.send(message);
 // ===========================================
 
 if (actions[type]) {
-const cfg = actions[type];
-value = generateValue(seed, type, cfg.max, cfg.min, sender);
-const space = spaceIf(cfg.unitSpace);
-message = `${senderDisplay}, your ${cfg.label} is ${value}${space}${cfg.unit} today!${getJoke(req, type, value)}`;
-statCounters[sender] = statCounters[sender] || {};
-statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-commandCounters[type] = (commandCounters[type] || 0) + 1;
-return res.send(message);
+  const cfg = actions[type];
+  value = generateValue(seed, type, cfg.max, cfg.min, sender);
+  const space = spaceIf(cfg.unitSpace);
+
+  let level = "low";
+  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
+  if (value > cfg.levels[1]) level = "high";
+
+  message = `${senderDisplay}, your ${cfg.label} is ${value}${space}${cfg.unit} today! ${getJoke(req, type, value, cfg)}`;
+
+  statCounters[sender] = statCounters[sender] || {};
+  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+  commandCounters[type] = (commandCounters[type] || 0) + 1;
+  return res.send(message);
 }
 
 // ===========================================
@@ -2151,14 +2293,20 @@ return res.send(message);
 // ===========================================
 
 if (hold[type]) {
-const cfg = hold[type];
-value = generateValue(seed, type, cfg.max, cfg.min, sender);
-const space = spaceIf(cfg.unitSpace);
-message = `${senderDisplay}, your ${cfg.label} holds ${value}${space}${cfg.unit} today!${getJoke(req, type, value)}`;
-statCounters[sender] = statCounters[sender] || {};
-statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-commandCounters[type] = (commandCounters[type] || 0) + 1;
-return res.send(message);
+  const cfg = hold[type];
+  value = generateValue(seed, type, cfg.max, cfg.min, sender);
+  const space = spaceIf(cfg.unitSpace);
+
+  let level = "low";
+  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
+  if (value > cfg.levels[1]) level = "high";
+
+  message = `${senderDisplay}, your ${cfg.label} holds ${value}${space}${cfg.unit} today! ${getJoke(req, type, value, cfg)}`;
+
+  statCounters[sender] = statCounters[sender] || {};
+  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+  commandCounters[type] = (commandCounters[type] || 0) + 1;
+  return res.send(message);
 }
 
 // ===========================================
@@ -2166,14 +2314,20 @@ return res.send(message);
 // ===========================================
 
 if (carry[type]) {
-const cfg = carry[type];
-value = generateValue(seed, type, cfg.max, cfg.min, sender);
-const space = spaceIf(cfg.unitSpace);
-message = `${senderDisplay}, your ${cfg.label} is carrying ${value}${space}${cfg.unit} today!${getJoke(req, type, value)}`;
-statCounters[sender] = statCounters[sender] || {};
-statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-commandCounters[type] = (commandCounters[type] || 0) + 1;
-return res.send(message);
+  const cfg = carry[type];
+  value = generateValue(seed, type, cfg.max, cfg.min, sender);
+  const space = spaceIf(cfg.unitSpace);
+
+  let level = "low";
+  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
+  if (value > cfg.levels[1]) level = "high";
+
+  message = `${senderDisplay}, your ${cfg.label} is carrying ${value}${space}${cfg.unit} today! ${getJoke(req, type, value, cfg)}`;
+
+  statCounters[sender] = statCounters[sender] || {};
+  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+  commandCounters[type] = (commandCounters[type] || 0) + 1;
+  return res.send(message);
 }
 
 // ===========================================
@@ -2181,14 +2335,20 @@ return res.send(message);
 // ===========================================
 
 if (piracy[type]) {
-const cfg = piracy[type];
-value = generateValue(seed, type, cfg.max, cfg.min, sender);
-const space = spaceIf(cfg.unitSpace);
-message = `${senderDisplay}, your ${cfg.label} be ${value}${space}${cfg.unit} today!${getJoke(req, type, value)}`;
-statCounters[sender] = statCounters[sender] || {};
-statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-commandCounters[type] = (commandCounters[type] || 0) + 1;
-return res.send(message);
+  const cfg = piracy[type];
+  value = generateValue(seed, type, cfg.max, cfg.min, sender);
+  const space = spaceIf(cfg.unitSpace);
+
+  let level = "low";
+  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
+  if (value > cfg.levels[1]) level = "high";
+
+  message = `${senderDisplay}, your ${cfg.label} be ${value}${space}${cfg.unit} today! ${getJoke(req, type, value, cfg)}`;
+
+  statCounters[sender] = statCounters[sender] || {};
+  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+  commandCounters[type] = (commandCounters[type] || 0) + 1;
+  return res.send(message);
 }
 
 // ===========================================
@@ -2196,14 +2356,20 @@ return res.send(message);
 // ===========================================
 
 if (custombutt[type]) {
-const cfg = custombutt[type];
-value = generateValue(seed, type, cfg.max, cfg.min, sender);
-const space = spaceIf(cfg.unitSpace);
-message = `${senderDisplay}, your ${cfg.label} is ${value}${space}${cfg.unit} fruity today!${getJoke(req, type, value)}`;
-statCounters[sender] = statCounters[sender] || {};
-statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-commandCounters[type] = (commandCounters[type] || 0) + 1;
-return res.send(message);
+  const cfg = custombutt[type];
+  value = generateValue(seed, type, cfg.max, cfg.min, sender);
+  const space = spaceIf(cfg.unitSpace);
+
+  let level = "low";
+  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
+  if (value > cfg.levels[1]) level = "high";
+
+  message = `${senderDisplay}, your ${cfg.label} is ${value}${space}${cfg.unit} fruity today! ${getJoke(req, type, value, cfg)}`;
+
+  statCounters[sender] = statCounters[sender] || {};
+  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+  commandCounters[type] = (commandCounters[type] || 0) + 1;
+  return res.send(message);
 }
 
 // ===========================================
@@ -2211,7 +2377,6 @@ return res.send(message);
 // ===========================================
 
 if (interactions.includes(type)) {
-  // Map action words for messaging
   const actionWord = type
     .replace("throwshoe", "threw a shoe at")
     .replace("fliptable", "flipped a table")
@@ -2225,21 +2390,16 @@ if (interactions.includes(type)) {
     .replace("slap", "slapped")
     .replace("spank", "spanked");
 
-  // Generate a random power value 1-100%
   const value = generateValue(seed, type, 100, 1, sender);
-
-  // Use the universal getJoke with a tempCfg for interactions
   const tempCfg = { min: 1, max: 100, levels: [30, 70] };
   const joke = getJoke(req, type, value, tempCfg);
 
-  // Compose the message depending on target
+  let message;
   if (!userRaw || sender === cleanUsername(userRaw)) {
     message = `${senderDisplay} tried to ${type} the air with ${value}% power!${joke}`;
   } else {
     message = `${senderDisplay} ${actionWord} ${targetDisplay} with ${value}% power!${joke}`;
   }
-
-  // Update stats
   statCounters[sender] = statCounters[sender] || {};
   statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
   commandCounters[type] = (commandCounters[type] || 0) + 1;
@@ -2254,7 +2414,7 @@ if (interactions.includes(type)) {
 message = `${senderDisplay}, invalid type. Try pp, daddy, bb, or fun ones like beard, hug, boop, bonk, etc.`;
 return res.send(message);
 } finally {
-lock[type] = false; // Always release lock
+lock[type] = false;
 }
 });
 
