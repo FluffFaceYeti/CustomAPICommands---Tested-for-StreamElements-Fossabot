@@ -538,14 +538,14 @@ Within your link
 example below:
 
 ```yaml
-Beard:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=beard&jokes=false}
+Boop:
+${customapi.https://yourusername.onrender.com?sender=${sender}&user=${user}&type=boop}
 ```
 to
 
 ```yaml
-Beard:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=beard&jokes=false&consent=true}
+Boop:
+${customapi.https://yourusername.onrender.com?sender=${sender}&type=boop&consent=true}
 ```
 
 Now when someone tries to !spank someone it will ask the target user to consent using 
