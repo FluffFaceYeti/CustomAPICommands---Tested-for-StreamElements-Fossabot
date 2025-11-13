@@ -5,8 +5,20 @@ const app = express();
 const TIMEZONE = "Europe/London";
 
 // ===========================================
+// ⚙️ CONSENT TIMER
+// ===========================================
+// (milliseconds)
+const CONSENT_TIMEOUT_MS = 60000;  // 60s
+
+// ===========================================
+// 💾 TEMP CONSENT STORAGE
+// ===========================================
+const pendingConsents = new Map(); 
+
+// ===========================================
 // 🚫 HELPERS
 // ===========================================
+
 function generateValue(seed, offset, max, min = 0, user = "") {
 const hash = crypto.createHash("md5").update(seed + offset + user).digest("hex");
 const num = parseInt(hash.slice(0, 8), 16);
@@ -26,17 +38,8 @@ const specific = req.query[`joke_${type}`];
 if (specific === "false") return false;
 if (specific === "true") return true;
 
-return true; 
+return true;
 }
-
-/**
- * Universal joke calculator
- * @param {object} req - request object
- * @param {string} type - joke type / command name
- * @param {number} value - numeric value to scale joke
- * @param {object} [cfg] - optional {min, max, levels} config for stats/interactions
- * @param {number} [index] - optional index for list-type commands
- */
 
 function getJoke(req, type, value, cfg = null, index = null) {
   if (!isJokeEnabled(req, type)) return "";
@@ -50,10 +53,13 @@ function getJoke(req, type, value, cfg = null, index = null) {
   }
 
   if (cfg && typeof value === "number") {
-    const min = cfg.min ?? 0;
-    const max = cfg.max ?? 100;
-    const levels = cfg.levels ?? [30, 70];
+  const min = cfg.min ?? 0;
+  const max = cfg.max ?? 100;
+  let levels = [30, 70];
 
+  if (Array.isArray(cfg.levels) && cfg.levels.length === 2) {
+  levels = cfg.levels;
+  }
     let level;
     if (value < levels[0]) {
       level = "low";
@@ -62,6 +68,7 @@ function getJoke(req, type, value, cfg = null, index = null) {
     } else {
       level = "high";
     }
+
     if (jokes[type] && jokes[type][level]) {
       const joke = pickRandom(jokes[type][level]);
       return " " + joke;
@@ -75,10 +82,8 @@ function getJoke(req, type, value, cfg = null, index = null) {
     const fallbackJoke = pickRandom(jokes[type][fallbackLevel]);
     return " " + fallbackJoke;
   }
-
   return "";
 }
-
 function cleanUsername(name = "") {
 return name.replace(/^@/, "").toLowerCase();
 }
@@ -90,38 +95,38 @@ return unitSpace ? " " : "";
 }
 
 // ===========================================
-// 🎮 MINI GAMES
+// 🌟 MINI GAMES 
 // ===========================================
 
-const miniGames = {
-rps: rockPaperScissors,
-tugofwar: tugOfWar,
-diceroll: diceRoll,
-coinflip: coinFlip,
-rpsls: rpsls,
-highorlow: highOrLow,
-};
+function dailyPairSeed(gameType, sender, target) {
+  const today = new Date().toLocaleDateString("en-GB");
+  return `${today}-${gameType}-${[sender, target].sort().join("-")}`;
+}
 
 // ===========================================
 // 🎮 ROCK PAPER SCISSORS
 // ===========================================
 
 function rockPaperScissors(sender, target) {
-const choices = ["rock", "paper", "scissors"];
-const senderMove = pickRandom(choices);
-const targetMove = pickRandom(choices);
+  const pairSeed = dailyPairSeed("rps", sender, target);
+  const hash = crypto.createHash("md5").update(pairSeed).digest("hex");
+  const num = parseInt(hash.slice(0, 8), 16);
 
-if (senderMove === targetMove) {
-return `${sender}, it's a tie with ${target}! Both chose ${senderMove}. Looks like you're equally matched! Maybe next time you'll win... or not. 😅`;
-}
-if (
-(senderMove === "rock" && targetMove === "scissors") ||
-(senderMove === "paper" && targetMove === "rock") ||
-(senderMove === "scissors" && targetMove === "paper")
-) {
-return `${sender} wins! ${senderMove} beats ${targetMove}. Victory is sweet... but remember, don't get cocky! 😎`;
-}
-return `${target} wins! ${targetMove} beats ${senderMove}. Oof, that’s gotta hurt! Better luck next time! 😂`;
+  const choices = ["rock", "paper", "scissors"];
+  const senderMove = choices[num % 3];
+  const targetMove = choices[(num >> 2) % 3];
+
+  if (senderMove === targetMove)
+    return `${sender}, it's a tie with ${target}! Both chose ${senderMove}. 😅`;
+
+  if (
+    (senderMove === "rock" && targetMove === "scissors") ||
+    (senderMove === "paper" && targetMove === "rock") ||
+    (senderMove === "scissors" && targetMove === "paper")
+  )
+    return `${sender} wins! ${senderMove} beats ${targetMove}. 😎`;
+
+  return `${target} wins! ${targetMove} beats ${senderMove}. 😂`;
 }
 
 // ===========================================
@@ -129,16 +134,18 @@ return `${target} wins! ${targetMove} beats ${senderMove}. Oof, that’s gotta h
 // ===========================================
 
 function tugOfWar(sender, target) {
-const senderStrength = Math.floor(Math.random() * 100);
-const targetStrength = Math.floor(Math.random() * 100);
+  const pairSeed = dailyPairSeed("tug", sender, target);
+  const hash = crypto.createHash("md5").update(pairSeed).digest("hex");
+  const num = parseInt(hash.slice(0, 8), 16);
 
-if (senderStrength > targetStrength) {
-return `${sender} wins! They pulled with ${senderStrength} strength, while ${target} pulled with ${targetStrength}. Looks like you're the stronger one! 💪`;
-} else if (senderStrength < targetStrength) {
-return `${target} wins! They pulled with ${targetStrength} strength, while ${sender} pulled with ${senderStrength}. Ouch, looks like someone skipped leg day! 😂`;
-} else {
-return `It's a tie! Both ${sender} and ${target} pulled with ${senderStrength} strength. A real stalemate! 😅`;
-}
+  const senderStrength = (num % 100) + 1;
+  const targetStrength = ((num >> 4) % 100) + 1;
+
+  if (senderStrength > targetStrength)
+    return `${sender} wins! Pulled with ${senderStrength} vs ${target}'s ${targetStrength}. 💪`;
+  if (senderStrength < targetStrength)
+    return `${target} wins! Pulled with ${targetStrength} vs ${sender}'s ${senderStrength}. 😂`;
+  return `It's a tie! Both pulled with ${senderStrength}. 😅`;
 }
 
 // ===========================================
@@ -146,16 +153,18 @@ return `It's a tie! Both ${sender} and ${target} pulled with ${senderStrength} s
 // ===========================================
 
 function diceRoll(sender, target) {
-const senderRoll = Math.floor(Math.random() * 6) + 1;
-const targetRoll = Math.floor(Math.random() * 6) + 1;
+  const pairSeed = dailyPairSeed("dice", sender, target);
+  const hash = crypto.createHash("md5").update(pairSeed).digest("hex");
+  const num = parseInt(hash.slice(0, 8), 16);
 
-if (senderRoll > targetRoll) {
-return `${sender} wins! They rolled a ${senderRoll}, and ${target} rolled a ${targetRoll}. Lucky roll! 🍀`;
-} else if (senderRoll < targetRoll) {
-return `${target} wins! They rolled a ${targetRoll}, and ${sender} rolled a ${senderRoll}. Better luck next time, dice are cruel! 🎲`;
-} else {
-return `It's a tie! Both ${sender} and ${target} rolled a ${senderRoll}. A roll of destiny! 🤔`;
-}
+  const senderRoll = (num % 6) + 1;
+  const targetRoll = ((num >> 3) % 6) + 1;
+
+  if (senderRoll > targetRoll)
+    return `${sender} wins! 🎲 ${senderRoll} vs ${target}'s ${targetRoll}`;
+  if (senderRoll < targetRoll)
+    return `${target} wins! 🎲 ${targetRoll} vs ${sender}'s ${senderRoll}`;
+  return `It's a tie! Both rolled ${senderRoll}. 😅`;
 }
 
 // ===========================================
@@ -163,13 +172,12 @@ return `It's a tie! Both ${sender} and ${target} rolled a ${senderRoll}. A roll 
 // ===========================================
 
 function coinFlip(sender, target) {
-const result = Math.random() < 0.5 ? "Heads" : "Tails";
+  const pairSeed = dailyPairSeed("coin", sender, target);
+  const hash = crypto.createHash("md5").update(pairSeed).digest("hex");
+  const num = parseInt(hash.slice(0, 8), 16);
+  const result = num % 2 === 0 ? "Heads" : "Tails";
 
-if (sender.toLowerCase() === result.toLowerCase()) {
-return `${sender} wins! The coin landed on ${result}. Heads or tails, it’s your lucky day! 🍀`;
-} else {
-return `${target} wins! The coin landed on ${result}. Looks like luck wasn't on your side this time! 😅`;
-}
+  return `${sender} flips a coin... ${result}! 🪙`;
 }
 
 // ===========================================
@@ -177,27 +185,28 @@ return `${target} wins! The coin landed on ${result}. Looks like luck wasn't on 
 // ===========================================
 
 function rpsls(sender, target) {
-const choices = ["rock", "paper", "scissors", "lizard", "spock"];
-const winConditions = {
-rock: ["scissors", "lizard"],
-paper: ["rock", "spock"],
-scissors: ["paper", "lizard"],
-lizard: ["spock", "paper"],
-spock: ["rock", "scissors"]
-};
+  const pairSeed = dailyPairSeed("rpsls", sender, target);
+  const hash = crypto.createHash("md5").update(pairSeed).digest("hex");
+  const num = parseInt(hash.slice(0, 8), 16);
 
-const senderMove = pickRandom(choices);
-const targetMove = pickRandom(choices);
+  const choices = ["rock", "paper", "scissors", "lizard", "spock"];
+  const senderMove = choices[num % 5];
+  const targetMove = choices[(num >> 3) % 5];
+  const winConditions = {
+    rock: ["scissors", "lizard"],
+    paper: ["rock", "spock"],
+    scissors: ["paper", "lizard"],
+    lizard: ["spock", "paper"],
+    spock: ["rock", "scissors"],
+  };
 
-if (senderMove === targetMove) {
-return `${sender}, it's a tie with ${target}! Both chose ${senderMove}. A cosmic stalemate! 🌌`;
-}
+  if (senderMove === targetMove)
+    return `${sender} ties with ${target}! Both chose ${senderMove}. 🌌`;
 
-if (winConditions[senderMove].includes(targetMove)) {
-return `${sender} wins! ${senderMove} beats ${targetMove}. Oh, you’re the true master of the universe! 💥`;
-} else {
-return `${target} wins! ${targetMove} beats ${senderMove}. Looks like they outsmarted you this time! 🤔`;
-}
+  if (winConditions[senderMove].includes(targetMove))
+    return `${sender} wins! ${senderMove} beats ${targetMove}. 💥`;
+
+  return `${target} wins! ${targetMove} beats ${senderMove}. 🤔`;
 }
 
 // ===========================================
@@ -205,19 +214,28 @@ return `${target} wins! ${targetMove} beats ${senderMove}. Looks like they outsm
 // ===========================================
 
 function highOrLow(sender, target) {
-const secretNumber = Math.floor(Math.random() * 100) + 1;
-let result = "";
+  const pairSeed = dailyPairSeed("highlow", sender, target);
+  const hash = crypto.createHash("md5").update(pairSeed).digest("hex");
+  const num = parseInt(hash.slice(0, 8), 16);
+  const secretNumber = (num % 100) + 1;
 
-if (sender.toLowerCase() === "higher" && secretNumber > 50) {
-result = `${sender} wins! The secret number was ${secretNumber}, which is higher than 50. Call it a win for your intuition! 🔮`;
-} else if (sender.toLowerCase() === "lower" && secretNumber <= 50) {
-result = `${sender} wins! The secret number was ${secretNumber}, which is lower than 50. Looks like you have the magic touch! ✨`;
-} else {
-result = `${target} wins! The secret number was ${secretNumber}, and ${sender} guessed wrong. Better luck next time! 🎯`;
+  if (secretNumber > 50)
+    return `${sender} guessed higher — correct! The number was ${secretNumber}. 🔮`;
+  return `${target} guessed lower — correct! The number was ${secretNumber}. ✨`;
 }
 
-return result;
-}
+// ===========================================
+// 🎮 REGISTER MINI GAMES
+// ===========================================
+
+const miniGames = {
+  rps: rockPaperScissors,
+  tugofwar: tugOfWar,
+  diceroll: diceRoll,
+  coinflip: coinFlip,
+  rpsls: rpsls,
+  highorlow: highOrLow,
+};
 
 // ===========================================
 // 👑 SPECIAL USERS
@@ -234,30 +252,23 @@ theo: "@username2, Theo knows who his mama is and gives her all his love!",
 };
 
 // ===========================================
-// 📊 Custom
-// ===========================================
-
-const custombutt = {
-  butt: { min: 0, max: 100, levels: [30, 70], label: "butt", unit: "%", unitSpace: false },
-};
-
-// ===========================================
 // 📊 STATS
 // ===========================================
 
 const stats = {
-  beard: { min: 1, max: 30, levels: [10, 25], unit: "cm", label: "beard", unitSpace: false },
-  hair: { min: 10, max: 100, levels: [30, 70], unit: "cm", label: "hair", unitSpace: false },
-  pp: { min: 4, max: 15, levels: [6, 10], unit: "inches", label: "pp", unitSpace: false },
-  bb: { label: "boob size", type: "bra", bands: [30, 32, 34, 36, 38, 40, 42], cups: ["A", "B", "C", "D", "DD", "E", "F"], unitSpace: false },
-  daddy: { min: 0, max: 100, levels: [30, 70], label: "daddy level", unit: "%", unitSpace: false },
-  catmom: { min: 0, max: 100, levels: [30, 70], label: "Cat Mom level", unit: "%", unitSpace: false },
-  stinker: { min: 0, max: 100, levels: [30, 70], label: "Fart level", unit: "%", unitSpace: false },
-  fox: { min: 0, max: 100, levels: [30, 70], label: "fox level", unit: "%", unitSpace: false },
-  nerd: { min: 0, max: 100, levels: [30, 70], label: "nerd level", unit: "%", unitSpace: false },
-  tinkabell: { min: 0, max: 100, levels: [20, 60], label: "tinkabell level", unit: "%", unitSpace: false },
-  princess: { min: 0, max: 100, levels: [30, 70], label: "princess energy", unit: "%", unitSpace: false },
-  goodgirl: { min: 0, max: 100, levels: [30, 70], label: "good girl level", unit: "%", unitSpace: false },
+beard: { min: 1, max: 30, levels: [10, 25], unit: "cm", label: "beard", unitSpace: false },
+hair: { min: 10, max: 100, levels: [30, 70], unit: "cm", label: "hair", unitSpace: false },
+pp: { min: 3, max: 15, levels: [5, 7], unit: "inches", label: "pp", unitSpace: false },
+bb: { label: "boob size", type: "bra", bands: [28, 30, 32, 34, 36, 38, 40, 42, 44], cups: ["AA", "A", "B", "C", "D", "DD", "E", "F", "FF", "G", "GG"], unitSpace: false, },
+daddy: { min: 0, max: 100, levels: [30, 70], label: "daddy level", unit: "%", unitSpace: false },
+catmom: { min: 0, max: 100, levels: [30, 70], label: "Cat Mom level", unit: "%", unitSpace: false },
+stinker: { min: 0, max: 100, levels: [30, 70], label: "Fart level", unit: "%", unitSpace: false },
+fox: { min: 0, max: 100, levels: [30, 70], label: "fox level", unit: "%", unitSpace: false },
+nerd: { min: 0, max: 100, levels: [30, 70], label: "nerd level", unit: "%", unitSpace: false },
+tinkabell: { min: 0, max: 100, levels: [20, 60], label: "tinkabell level", unit: "%", unitSpace: false },
+princess: { min: 0, max: 100, levels: [30, 70], label: "princess energy", unit: "%", unitSpace: false },
+goodgirl: { min: 0, max: 100, levels: [30, 70], label: "good girl level", unit: "%", unitSpace: false },
+butt: { min: 0, max: 100, levels: [30, 70], label: "butt fruitiness level", unit: "%", unitSpace: false },
 };
 
 // ===========================================
@@ -265,7 +276,7 @@ const stats = {
 // ===========================================
 
 const love = {
-  flame: { min: 0, max: 100, levels: [30, 70], label: "Flame loves you", unit: "%", unitSpace: false },
+flame: { min: 0, max: 100, levels: [30, 70], label: "flame love", unit: "%", unitSpace: false },
 };
 
 // ===========================================
@@ -273,7 +284,7 @@ const love = {
 // ===========================================
 
 const hate = {
-  flamehate: { min: 0, max: 100, levels: [30, 70], label: "Flame hates you", unit: "%", unitSpace: false },
+flamehate: { min: 0, max: 100, levels: [30, 70], label: "flame hate", unit: "%", unitSpace: false },
 };
 
 // ===========================================
@@ -281,48 +292,49 @@ const hate = {
 // ===========================================
 
 const personality = {
-  clowning: { min: 0, max: 100, levels: [20, 50], label: "clowning around", unit: "%", unitSpace: false },
-  heroComplex: { min: 0, max: 100, levels: [30, 70], label: "hero complex", unit: "%", unitSpace: false },
-  darkHumor: { min: 0, max: 100, levels: [10, 50], label: "dark humor", unit: "%", unitSpace: false },
-  whimsicality: { min: 0, max: 100, levels: [25, 65], label: "whimsicality", unit: "%", unitSpace: false },
-  ambition: { min: 0, max: 100, levels: [40, 80], label: "ambition", unit: "%", unitSpace: false },
-  mischief: { min: 0, max: 100, levels: [20, 60], label: "mischief level", unit: "%", unitSpace: false },
-  bookishness: { min: 0, max: 100, levels: [30, 70], label: "bookishness", unit: "%", unitSpace: false },
-  zen: { min: 0, max: 100, levels: [30, 80], label: "zen", unit: "%", unitSpace: false },
-  selfConfidence: { min: 0, max: 100, levels: [30, 80], label: "self-confidence", unit: "%", unitSpace: false },
-  thoughtfulness: { min: 0, max: 100, levels: [40, 90], label: "thoughtfulness", unit: "%", unitSpace: false },
-  creativity: { min: 0, max: 100, levels: [10, 50], label: "creativity", unit: "%", unitSpace: false },
-  spontaneity: { min: 0, max: 100, levels: [20, 70], label: "spontaneity", unit: "%", unitSpace: false },
-  cookingSkills: { min: 0, max: 100, levels: [20, 60], label: "cooking skills", unit: "%", unitSpace: false },
-  competitiveSpirit: { min: 0, max: 100, levels: [40, 90], label: "competitive spirit", unit: "%", unitSpace: false },
-  eccentricity: { min: 0, max: 100, levels: [30, 70], label: "eccentricity", unit: "%", unitSpace: false },
-  sassiness: { min: 0, max: 100, levels: [40, 90], label: "sassiness", unit: "%", unitSpace: false },
-  imagination: { min: 0, max: 100, levels: [20, 60], label: "imagination", unit: "%", unitSpace: false },
-  nurturingInstinct: { min: 0, max: 100, levels: [30, 70], label: "nurturing instinct", unit: "%", unitSpace: false },
-  patience: { min: 0, max: 100, levels: [20, 50], label: "patience", unit: "%", unitSpace: false },
-  charisma: { min: 0, max: 100, levels: [50, 90], label: "charisma", unit: "%", unitSpace: false },
-  luck: { min: 1, max: 10, levels: [3, 7], label: "luck roll", unit: "/10", unitSpace: false },
+clowning: { min: 0, max: 100, levels: [20, 50], label: "clowning around", unit: "%", unitSpace: false },
+heroComplex: { min: 0, max: 100, levels: [30, 70], label: "hero complex", unit: "%", unitSpace: false },
+darkHumor: { min: 0, max: 100, levels: [10, 50], label: "dark humor", unit: "%", unitSpace: false },
+whimsicality: { min: 0, max: 100, levels: [25, 65], label: "whimsicality", unit: "%", unitSpace: false },
+ambition: { min: 0, max: 100, levels: [40, 80], label: "ambition", unit: "%", unitSpace: false },
+mischief: { min: 0, max: 100, levels: [20, 60], label: "mischief level", unit: "%", unitSpace: false },
+bookishness: { min: 0, max: 100, levels: [30, 70], label: "bookishness", unit: "%", unitSpace: false },
+zen: { min: 0, max: 100, levels: [30, 80], label: "zen", unit: "%", unitSpace: false },
+selfConfidence: { min: 0, max: 100, levels: [30, 80], label: "self-confidence", unit: "%", unitSpace: false },
+thoughtfulness: { min: 0, max: 100, levels: [40, 90], label: "thoughtfulness", unit: "%", unitSpace: false },
+creativity: { min: 0, max: 100, levels: [10, 50], label: "creativity", unit: "%", unitSpace: false },
+spontaneity: { min: 0, max: 100, levels: [20, 70], label: "spontaneity", unit: "%", unitSpace: false },
+cookingSkills: { min: 0, max: 100, levels: [20, 60], label: "cooking skills", unit: "%", unitSpace: false },
+competitiveSpirit: { min: 0, max: 100, levels: [40, 90], label: "competitive spirit", unit: "%", unitSpace: false },
+eccentricity: { min: 0, max: 100, levels: [30, 70], label: "eccentricity", unit: "%", unitSpace: false },
+sassiness: { min: 0, max: 100, levels: [40, 90], label: "sassiness", unit: "%", unitSpace: false },
+imagination: { min: 0, max: 100, levels: [20, 60], label: "imagination", unit: "%", unitSpace: false },
+nurturingInstinct: { min: 0, max: 100, levels: [30, 70], label: "nurturing instinct", unit: "%", unitSpace: false },
+patience: { min: 0, max: 100, levels: [20, 50], label: "patience", unit: "%", unitSpace: false },
+charisma: { min: 0, max: 100, levels: [50, 90], label: "charisma", unit: "%", unitSpace: false },
+luck: { min: 1, max: 10, levels: [3, 7], label: "luck roll", unit: "/10", unitSpace: false },
 };
 
 // ===========================================
-// 🏋️ GYM STATS
+// 🏋️ GYM
 // ===========================================
 
 const gym = {
-  lift: { min: 0, max: 500, levels: [100, 300], label: "lifting power", unit: "kg", unitSpace: false },
-  run: { min: 0, max: 42, levels: [10, 25], label: "running distance", unit: "km", unitSpace: false },
-  sprint: { min: 0, max: 100, levels: [30, 70], label: "sprint speed", unit: "m/s", unitSpace: false },
-  deadlift: { min: 0, max: 500, levels: [100, 300], label: "deadlift weight", unit: "kg", unitSpace: false },
-  curl: { min: 0, max: 200, levels: [20, 80], label: "curl strength", unit: "kg", unitSpace: false },
-  row: { min: 0, max: 1000, levels: [100, 500], label: "rowing distance", unit: "m", unitSpace: false },
-  stretch: { min: 0, max: 100, levels: [30, 70], label: "flexibility", unit: "%", unitSpace: false },
+lift: { min: 0, max: 500, levels: [100, 300], label: "lifting power", unit: "kg", unitSpace: false },
+run: { min: 0, max: 42, levels: [10, 25], label: "running distance", unit: "km", unitSpace: false },
+sprint: { min: 0, max: 100, levels: [30, 70], label: "sprint speed", unit: "m/s", unitSpace: false },
+deadlift: { min: 0, max: 500, levels: [100, 300], label: "deadlift weight", unit: "kg", unitSpace: false },
+curl: { min: 0, max: 200, levels: [20, 80], label: "curl strength", unit: "kg", unitSpace: false },
+row: { min: 0, max: 1000, levels: [100, 500], label: "rowing distance", unit: "m", unitSpace: false },
+stretch: { min: 0, max: 100, levels: [30, 70], label: "flexibility", unit: "%", unitSpace: false },
 };
 
 // ===========================================
 // 🏦 HOLD
 // ===========================================
+
 const hold = {
-  gold: { min: 0, max: 100, levels: [30, 70], label: "gold pouch", unit: "coins", unitSpace: true },
+gold: { min: 0, max: 100, levels: [30, 70], label: "gold pouch", unit: "coins", unitSpace: true },
 };
 
 // ===========================================
@@ -330,8 +342,8 @@ const hold = {
 // ===========================================
 
 const carry = {
-  weight: { min: 0, max: 200, levels: [50, 150], label: "carry weight", unit: "kg", unitSpace: false },
-  items: { min: 0, max: 100, levels: [10, 50], label: "carry items", unit: "items", unitSpace: true },
+weight: { min: 0, max: 200, levels: [50, 150], label: "carry weight", unit: "kg", unitSpace: false },
+items: { min: 0, max: 100, levels: [10, 50], label: "carry items", unit: "items", unitSpace: true },
 };
 
 // ===========================================
@@ -339,23 +351,23 @@ const carry = {
 // ===========================================
 
 const actions = {
-  squeeze: { min: 0, max: 100, levels: [30, 70], label: "squeeze strength", unit: "%", unitSpace: true },
-  push: { min: 0, max: 100, levels: [30, 70], label: "push power", unit: "kg", unitSpace: true },
-  jump: { min: 0, max: 100, levels: [30, 70], label: "jump height", unit: "cm", unitSpace: true },
-  press: { min: 0, max: 100, levels: [30, 70], label: "press strength", unit: "kg", unitSpace: true },
-  kick: { min: 0, max: 100, levels: [30, 70], label: "kick power", unit: "%", unitSpace: true },
-  dodge: { min: 0, max: 100, levels: [30, 70], label: "dodge agility", unit: "%", unitSpace: true },
-  roll: { min: 0, max: 100, levels: [30, 70], label: "roll distance", unit: "m", unitSpace: true },
-  slide: { min: 0, max: 100, levels: [30, 70], label: "slide speed", unit: "m/s", unitSpace: true },
-  climb: { min: 0, max: 100, levels: [30, 70], label: "climb speed", unit: "m/s", unitSpace: true },
-  punch: { min: 0, max: 100, levels: [30, 70], label: "punch power", unit: "kg", unitSpace: true },
-  block: { min: 0, max: 100, levels: [30, 70], label: "block strength", unit: "%", unitSpace: true },
-  tackle: { min: 0, max: 100, levels: [30, 70], label: "tackle force", unit: "kg", unitSpace: true },
-  throw: { min: 0, max: 100, levels: [30, 70], label: "throw accuracy", unit: "%", unitSpace: true },
-  kickflip: { min: 0, max: 100, levels: [30, 70], label: "kickflip ability", unit: "%", unitSpace: true },
-  spin: { min: 0, max: 100, levels: [30, 70], label: "spin speed", unit: "rpm", unitSpace: true },
-  uppercut: { min: 0, max: 100, levels: [30, 70], label: "uppercut power", unit: "kg", unitSpace: true },
-  grapple: { min: 0, max: 100, levels: [30, 70], label: "grapple strength", unit: "%", unitSpace: true },
+squeeze: { min: 0, max: 100, levels: [30, 70], label: "squeeze strength", unit: "%", unitSpace: true },
+push: { min: 0, max: 100, levels: [30, 70], label: "push power", unit: "kg", unitSpace: true },
+jump: { min: 0, max: 100, levels: [30, 70], label: "jump height", unit: "cm", unitSpace: true },
+press: { min: 0, max: 100, levels: [30, 70], label: "press strength", unit: "kg", unitSpace: true },
+kick: { min: 0, max: 100, levels: [30, 70], label: "kick power", unit: "%", unitSpace: true },
+dodge: { min: 0, max: 100, levels: [30, 70], label: "dodge agility", unit: "%", unitSpace: true },
+roll: { min: 0, max: 100, levels: [30, 70], label: "roll distance", unit: "m", unitSpace: true },
+slide: { min: 0, max: 100, levels: [30, 70], label: "slide speed", unit: "m/s", unitSpace: true },
+climb: { min: 0, max: 100, levels: [30, 70], label: "climb speed", unit: "m/s", unitSpace: true },
+punch: { min: 0, max: 100, levels: [30, 70], label: "punch power", unit: "kg", unitSpace: true },
+block: { min: 0, max: 100, levels: [30, 70], label: "block strength", unit: "%", unitSpace: true },
+tackle: { min: 0, max: 100, levels: [30, 70], label: "tackle force", unit: "kg", unitSpace: true },
+throw: { min: 0, max: 100, levels: [30, 70], label: "throw accuracy", unit: "%", unitSpace: true },
+kickflip: { min: 0, max: 100, levels: [30, 70], label: "kickflip ability", unit: "%", unitSpace: true },
+spin: { min: 0, max: 100, levels: [30, 70], label: "spin speed", unit: "rpm", unitSpace: true },
+uppercut: { min: 0, max: 100, levels: [30, 70], label: "uppercut power", unit: "kg", unitSpace: true },
+grapple: { min: 0, max: 100, levels: [30, 70], label: "grapple strength", unit: "%", unitSpace: true },
 };
 
 // ===========================================
@@ -363,23 +375,23 @@ const actions = {
 // ===========================================
 
 const emotions = {
-  happiness: { min: 0, max: 100, levels: [30, 70], label: "happiness", unit: "%", unitSpace: true },
-  anger: { min: 0, max: 100, levels: [30, 70], label: "anger level", unit: "%", unitSpace: false },
-  calmness: { min: 0, max: 100, levels: [30, 70], label: "calmness", unit: "%", unitSpace: true },
-  joy: { min: 0, max: 100, levels: [30, 70], label: "joy level", unit: "%", unitSpace: true },
-  excitement: { min: 0, max: 100, levels: [30, 70], label: "excitement", unit: "%", unitSpace: true },
-  energy: { min: 0, max: 100, levels: [30, 70], label: "energy level", unit: "%", unitSpace: false },
-  sleep: { min: 0, max: 100, levels: [30, 70], label: "sleep needed", unit: "%", unitSpace: false },
-  sadness: { min: 0, max: 100, levels: [30, 70], label: "sadness level", unit: "%", unitSpace: true },
-  anxiety: { min: 0, max: 100, levels: [30, 70], label: "anxiety level", unit: "%", unitSpace: true },
-  love: { min: 0, max: 100, levels: [30, 70], label: "love level", unit: "%", unitSpace: true },
-  nostalgia: { min: 0, max: 100, levels: [30, 70], label: "nostalgia level", unit: "%", unitSpace: true },
-  gratitude: { min: 0, max: 100, levels: [30, 70], label: "gratitude level", unit: "%", unitSpace: true },
-  guilt: { min: 0, max: 100, levels: [30, 70], label: "guilt level", unit: "%", unitSpace: true },
-  pride: { min: 0, max: 100, levels: [30, 70], label: "pride level", unit: "%", unitSpace: true },
-  frustration: { min: 0, max: 100, levels: [30, 70], label: "frustration level", unit: "%", unitSpace: true },
-  hope: { min: 0, max: 100, levels: [30, 70], label: "hope level", unit: "%", unitSpace: true },
-  love_hate_balance: { min: 0, max: 100, levels: [30, 70], label: "love vs hate balance", unit: "%", unitSpace: true },
+happiness: { min: 0, max: 100, levels: [30, 70], label: "happiness", unit: "%", unitSpace: true },
+anger: { min: 0, max: 100, levels: [30, 70], label: "anger level", unit: "%", unitSpace: false },
+calmness: { min: 0, max: 100, levels: [30, 70], label: "calmness", unit: "%", unitSpace: true },
+joy: { min: 0, max: 100, levels: [30, 70], label: "joy level", unit: "%", unitSpace: true },
+excitement: { min: 0, max: 100, levels: [30, 70], label: "excitement", unit: "%", unitSpace: true },
+energy: { min: 0, max: 100, levels: [30, 70], label: "energy level", unit: "%", unitSpace: false },
+sleep: { min: 0, max: 100, levels: [30, 70], label: "sleep needed", unit: "%", unitSpace: false },
+sadness: { min: 0, max: 100, levels: [30, 70], label: "sadness level", unit: "%", unitSpace: true },
+anxiety: { min: 0, max: 100, levels: [30, 70], label: "anxiety level", unit: "%", unitSpace: true },
+love: { min: 0, max: 100, levels: [30, 70], label: "love level", unit: "%", unitSpace: true },
+nostalgia: { min: 0, max: 100, levels: [30, 70], label: "nostalgia level", unit: "%", unitSpace: true },
+gratitude: { min: 0, max: 100, levels: [30, 70], label: "gratitude level", unit: "%", unitSpace: true },
+guilt: { min: 0, max: 100, levels: [30, 70], label: "guilt level", unit: "%", unitSpace: true },
+pride: { min: 0, max: 100, levels: [30, 70], label: "pride level", unit: "%", unitSpace: true },
+frustration: { min: 0, max: 100, levels: [30, 70], label: "frustration level", unit: "%", unitSpace: true },
+hope: { min: 0, max: 100, levels: [30, 70], label: "hope level", unit: "%", unitSpace: true },
+love_hate_balance: { min: 0, max: 100, levels: [30, 70], label: "love vs hate balance", unit: "%", unitSpace: true },
 };
 
 // ===========================================
@@ -387,19 +399,19 @@ const emotions = {
 // ===========================================
 
 const skills = {
-  precision: { min: 0, max: 100, levels: [30, 70], label: "precision", unit: "%", unitSpace: false },
-  accuracy: { min: 0, max: 100, levels: [30, 70], label: "accuracy", unit: "%", unitSpace: false },
-  focus: { min: 0, max: 100, levels: [30, 70], label: "focus level", unit: "%", unitSpace: false },
-  flirting: { min: 0, max: 100, levels: [30, 70], label: "flirting skill", unit: "%", unitSpace: false },
-  dj: { min: 1, max: 10, levels: [3, 7], label: "DJ skill level", unit: "/10", unitSpace: false },
-  intelligence: { min: 0, max: 100, levels: [30, 70], label: "intelligence", unit: "%", unitSpace: false },
-  stealth: { min: 0, max: 100, levels: [30, 70], label: "stealth", unit: "%", unitSpace: false },
-  cooking: { min: 0, max: 100, levels: [30, 70], label: "cooking skill", unit: "%", unitSpace: false },
-  leadership: { min: 0, max: 100, levels: [30, 70], label: "leadership ability", unit: "%", unitSpace: false },
-  negotiation: { min: 0, max: 100, levels: [30, 70], label: "negotiation skill", unit: "%", unitSpace: false },
-  martial_arts: { min: 0, max: 100, levels: [30, 70], label: "martial arts skill", unit: "%", unitSpace: false },
-  strength: { min: 0, max: 100, levels: [30, 70], label: "strength", unit: "%", unitSpace: false },
-  adaptability: { min: 0, max: 100, levels: [30, 70], label: "adaptability", unit: "%", unitSpace: false },
+precision: { min: 0, max: 100, levels: [30, 70], label: "precision", unit: "%", unitSpace: false },
+accuracy: { min: 0, max: 100, levels: [30, 70], label: "accuracy", unit: "%", unitSpace: false },
+focus: { min: 0, max: 100, levels: [30, 70], label: "focus level", unit: "%", unitSpace: false },
+flirting: { min: 0, max: 100, levels: [30, 70], label: "flirting skill", unit: "%", unitSpace: false },
+dj: { min: 1, max: 10, levels: [3, 7], label: "DJ skill level", unit: "/10", unitSpace: false },
+intelligence: { min: 0, max: 100, levels: [30, 70], label: "intelligence", unit: "%", unitSpace: false },
+stealth: { min: 0, max: 100, levels: [30, 70], label: "stealth", unit: "%", unitSpace: false },
+cooking: { min: 0, max: 100, levels: [30, 70], label: "cooking skill", unit: "%", unitSpace: false },
+leadership: { min: 0, max: 100, levels: [30, 70], label: "leadership ability", unit: "%", unitSpace: false },
+negotiation: { min: 0, max: 100, levels: [30, 70], label: "negotiation skill", unit: "%", unitSpace: false },
+martial_arts: { min: 0, max: 100, levels: [30, 70], label: "martial arts skill", unit: "%", unitSpace: false },
+strength: { min: 0, max: 100, levels: [30, 70], label: "strength", unit: "%", unitSpace: false },
+adaptability: { min: 0, max: 100, levels: [30, 70], label: "adaptability", unit: "%", unitSpace: false },
 };
 
 // ===========================================
@@ -407,18 +419,18 @@ const skills = {
 // ===========================================
 
 const piracy = {
-  pirate: { min: 0, max: 100, levels: [30, 70], label: "piracy skill", unit: "%", unitSpace: false },
-  captain: { min: 0, max: 100, levels: [30, 70], label: "captain skill", unit: "%", unitSpace: false },
-  treasure_hunting: { min: 0, max: 100, levels: [30, 70], label: "treasure hunting", unit: "%", unitSpace: false },
-  sea_navigation: { min: 0, max: 100, levels: [30, 70], label: "sea navigation", unit: "%", unitSpace: false },
-  ship_maintenance: { min: 0, max: 100, levels: [30, 70], label: "ship maintenance", unit: "%", unitSpace: false },
-  swordsmanship: { min: 0, max: 100, levels: [30, 70], label: "swordsmanship", unit: "%", unitSpace: false },
-  swashbuckling: { min: 0, max: 100, levels: [30, 70], label: "swashbuckling", unit: "%", unitSpace: false },
-  plunder: { min: 0, max: 100, levels: [30, 70], label: "plunder efficiency", unit: "%", unitSpace: false },
-  cannon_use: { min: 0, max: 100, levels: [30, 70], label: "cannon use", unit: "%", unitSpace: false },
-  crew_morale: { min: 0, max: 100, levels: [30, 70], label: "crew morale", unit: "%", unitSpace: false },
-  intimidation: { min: 0, max: 100, levels: [30, 70], label: "intimidation level", unit: "%", unitSpace: false },
-  parley: { min: 0, max: 100, levels: [30, 70], label: "parley skill", unit: "%", unitSpace: false },
+pirate: { min: 0, max: 100, levels: [30, 70], label: "piracy skill", unit: "%", unitSpace: false },
+captain: { min: 0, max: 100, levels: [30, 70], label: "captain skill", unit: "%", unitSpace: false },
+treasure_hunting: { min: 0, max: 100, levels: [30, 70], label: "treasure hunting", unit: "%", unitSpace: false },
+sea_navigation: { min: 0, max: 100, levels: [30, 70], label: "sea navigation", unit: "%", unitSpace: false },
+ship_maintenance: { min: 0, max: 100, levels: [30, 70], label: "ship maintenance", unit: "%", unitSpace: false },
+swordsmanship: { min: 0, max: 100, levels: [30, 70], label: "swordsmanship", unit: "%", unitSpace: false },
+swashbuckling: { min: 0, max: 100, levels: [30, 70], label: "swashbuckling", unit: "%", unitSpace: false },
+plunder: { min: 0, max: 100, levels: [30, 70], label: "plunder efficiency", unit: "%", unitSpace: false },
+cannon_use: { min: 0, max: 100, levels: [30, 70], label: "cannon use", unit: "%", unitSpace: false },
+crew_morale: { min: 0, max: 100, levels: [30, 70], label: "crew morale", unit: "%", unitSpace: false },
+intimidation: { min: 0, max: 100, levels: [30, 70], label: "intimidation level", unit: "%", unitSpace: false },
+parley: { min: 0, max: 100, levels: [30, 70], label: "parley skill", unit: "%", unitSpace: false },
 };
 
 // ===========================================
@@ -426,14 +438,14 @@ const piracy = {
 // ===========================================
 
 const animal = {
-  animal: {
-    list: [
-      "🦁 Lion", "🐯 Tiger", "🐻 Bear", "🐶 Dog", "🐱 Cat",
-      "🦊 Fox", "🐼 Panda", "🐨 Koala", "🐸 Frog", "🐵 Monkey",
-      "🦄 Unicorn", "🐍 Snake", "🦅 Eagle", "🐺 Wolf", "🐢 Turtle"
-    ],
-    label: "animal spirit"
-  }
+animal: {
+list: [
+"🦁 Lion", "🐯 Tiger", "🐻 Bear", "🐶 Dog", "🐱 Cat",
+"🦊 Fox", "🐼 Panda", "🐨 Koala", "🐸 Frog", "🐵 Monkey",
+"🦄 Unicorn", "🐍 Snake", "🦅 Eagle", "🐺 Wolf", "🐢 Turtle"
+],
+label: "animal spirit"
+}
 };
 
 // ===========================================
@@ -441,15 +453,15 @@ const animal = {
 // ===========================================
 
 const drink = {
-  drink: {
-    list: [
-      "☕ Coffee", "🍵 Tea", "🍸 Martini", "🍹 Mojito", "🍺 Beer",
-      "🥃 Whiskey", "🍷 Red Wine", "🥂 Champagne", "🧋 Boba Tea",
-      "🍋 Lemonade", "🍫 Hot Chocolate", "🍶 Sake", "🥛 Milk",
-      "🧃 Juice", "🍈 Melon Soda"
-    ],
-    label: "drink of the day"
-  }
+drink: {
+list: [
+"☕ Coffee", "🍵 Tea", "🍸 Martini", "🍹 Mojito", "🍺 Beer",
+"🥃 Whiskey", "🍷 Red Wine", "🥂 Champagne", "🧋 Boba Tea",
+"🍋 Lemonade", "🍫 Hot Chocolate", "🍶 Sake", "🥛 Milk",
+"🧃 Juice", "🍈 Melon Soda"
+],
+label: "drink of the day"
+}
 };
 
 // ===========================================
@@ -457,13 +469,13 @@ const drink = {
 // ===========================================
 
 const colors = {
-  colors: {
-    list: [
-      "💚 Green", "💙 Blue", "💛 Yellow", "❤️ Red", "🖤 Black",
-      "🤍 White", "💜 Purple", "🧡 Orange", "💖 Pink", "🌈 Rainbow"
-    ],
-    label: "color"
-  }
+colors: {
+list: [
+"💚 Green", "💙 Blue", "💛 Yellow", "❤️ Red", "🖤 Black",
+"🤍 White", "💜 Purple", "🧡 Orange", "💖 Pink", "🌈 Rainbow"
+],
+label: "color"
+}
 };
 
 // ===========================================
@@ -471,13 +483,13 @@ const colors = {
 // ===========================================
 
 const auravibes = {
-  auravibes: {
-    list: [
-      "✨ Radiant", "🌊 Calm", "🔥 Fiery", "🌱 Grounded", "💫 Mystical",
-      "🌸 Gentle", "⚡ Energetic", "🪐 Cosmic", "🌙 Dreamy", "🌟 Sparkling"
-    ],
-    label: "aura vibe"
-  }
+auravibes: {
+list: [
+"✨ Radiant", "🌊 Calm", "🔥 Fiery", "🌱 Grounded", "💫 Mystical",
+"🌸 Gentle", "⚡ Energetic", "🪐 Cosmic", "🌙 Dreamy", "🌟 Sparkling"
+],
+label: "aura vibe"
+}
 };
 
 // ===========================================
@@ -485,14 +497,14 @@ const auravibes = {
 // ===========================================
 
 const piratevibes = {
-  piratevibes: {
-    list: [
-      "🏴‍☠️ Swashbuckler", "⚓ Captain", "🦜 Parrot Whisperer",
-      "💰 Treasure Hunter", "🔥 Cannon Master", "🗺️ Navigator",
-      "🦑 Sea Monster Tamer"
-    ],
-    label: "pirate vibe"
-  }
+piratevibes: {
+list: [
+"🏴‍☠️ Swashbuckler", "⚓ Captain", "🦜 Parrot Whisperer",
+"💰 Treasure Hunter", "🔥 Cannon Master", "🗺️ Navigator",
+"🦑 Sea Monster Tamer"
+],
+label: "pirate vibe"
+}
 };
 
 // ===========================================
@@ -500,13 +512,13 @@ const piratevibes = {
 // ===========================================
 
 const wizardvibes = {
-  wizardvibes: {
-    list: [
-      "🪄 Apprentice", "✨ Sorcerer", "📜 Spellcaster", "🔮 Seer",
-      "🔥 Pyromancer", "❄️ Cryomancer", "🌀 Warlock"
-    ],
-    label: "wizard vibe"
-  }
+wizardvibes: {
+list: [
+"🪄 Apprentice", "✨ Sorcerer", "📜 Spellcaster", "🔮 Seer",
+"🔥 Pyromancer", "❄️ Cryomancer", "🌀 Warlock"
+],
+label: "wizard vibe"
+}
 };
 
 // ===========================================
@@ -514,13 +526,13 @@ const wizardvibes = {
 // ===========================================
 
 const outfits = {
-  outfits: {
-    list: [
-      "🧥 Casual Chic", "👗 Elegant", "👕 Sporty", "🩳 Relaxed", "👘 Traditional",
-      "🧣 Cozy", "🕶️ Trendy", "🦸 Heroic", "🎭 Costume", "🥋 Martial"
-    ],
-    label: "outfit/style"
-  }
+outfits: {
+list: [
+"🧥 Casual Chic", "👗 Elegant", "👕 Sporty", "🩳 Relaxed", "👘 Traditional",
+"🧣 Cozy", "🕶️ Trendy", "🦸 Heroic", "🎭 Costume", "🥋 Martial"
+],
+label: "outfit/style"
+}
 };
 
 // ===========================================
@@ -528,10 +540,10 @@ const outfits = {
 // ===========================================
 
 const elements = {
-  elements: {
-    list: ["🔥 Fire", "💧 Water", "🌱 Earth", "💨 Air", "⚡ Lightning", "❄️ Ice", "🌌 Void"],
-    label: "elemental affinity"
-  }
+elements: {
+list: ["🔥 Fire", "💧 Water", "🌱 Earth", "💨 Air", "⚡ Lightning", "❄️ Ice", "🌌 Void"],
+label: "elemental affinity"
+}
 };
 
 // ===========================================
@@ -539,13 +551,13 @@ const elements = {
 // ===========================================
 
 const powers = {
-  powers: {
-    list: [
-      "💪 Super Strength", "🧠 Telepathy", "🦾 Tech Genius", "🌀 Time Manipulation",
-      "🕶️ Invisibility", "⚡ Lightning Speed", "🌌 Cosmic Awareness"
-    ],
-    label: "power/ability"
-  }
+powers: {
+list: [
+"💪 Super Strength", "🧠 Telepathy", "🦾 Tech Genius", "🌀 Time Manipulation",
+"🕶️ Invisibility", "⚡ Lightning Speed", "🌌 Cosmic Awareness"
+],
+label: "power/ability"
+}
 };
 
 // ===========================================
@@ -553,13 +565,13 @@ const powers = {
 // ===========================================
 
 const pirateoutfits = {
-  pirateoutfits: {
-    list: [
-      "🪖 Tricorn Hat", "🧥 Captain’s Coat", "🦜 Parrot Companion",
-      "💰 Gold Earrings", "⚓ Anchor Tattoo", "🗡️ Cutlass", "🦴 Peg Leg"
-    ],
-    label: "pirate accessory"
-  }
+pirateoutfits: {
+list: [
+"🪖 Tricorn Hat", "🧥 Captain’s Coat", "🦜 Parrot Companion",
+"💰 Gold Earrings", "⚓ Anchor Tattoo", "🗡️ Cutlass", "🦴 Peg Leg"
+],
+label: "pirate accessory"
+}
 };
 
 // ===========================================
@@ -567,13 +579,13 @@ const pirateoutfits = {
 // ===========================================
 
 const wizarditems = {
-  wizarditems: {
-    list: [
-      "🪄 Wand", "📜 Spellbook", "🔮 Crystal Ball", "🧙 Robe",
-      "🧪 Potion", "🪞 Mirror of Insight", "🧹 Flying Broom"
-    ],
-    label: "wizard item"
-  }
+wizarditems: {
+list: [
+"🪄 Wand", "📜 Spellbook", "🔮 Crystal Ball", "🧙 Robe",
+"🧪 Potion", "🪞 Mirror of Insight", "🧹 Flying Broom"
+],
+label: "wizard item"
+}
 };
 
 // ===========================================
@@ -581,13 +593,13 @@ const wizarditems = {
 // ===========================================
 
 const elementalitems = {
-  elementalitems: {
-    list: [
-      "🔥 Fire Amulet", "💧 Water Orb", "🌱 Earth Ring", "💨 Air Pendant",
-      "⚡ Lightning Bracelet", "❄️ Ice Crystal", "🌌 Void Charm"
-    ],
-    label: "elemental item"
-  }
+elementalitems: {
+list: [
+"🔥 Fire Amulet", "💧 Water Orb", "🌱 Earth Ring", "💨 Air Pendant",
+"⚡ Lightning Bracelet", "❄️ Ice Crystal", "🌌 Void Charm"
+],
+label: "elemental item"
+}
 };
 
 // ===========================================
@@ -595,13 +607,13 @@ const elementalitems = {
 // ===========================================
 
 const auraitems = {
-  auraitems: {
-    list: [
-      "✨ Crystal Necklace", "🌸 Flower Crown", "🪐 Cosmic Ring",
-      "🌊 Water Bracelet", "🔥 Flame Pendant", "🌙 Moon Charm"
-    ],
-    label: "aura accessory"
-  }
+auraitems: {
+list: [
+"✨ Crystal Necklace", "🌸 Flower Crown", "🪐 Cosmic Ring",
+"🌊 Water Bracelet", "🔥 Flame Pendant", "🌙 Moon Charm"
+],
+label: "aura accessory"
+}
 };
 
 // ===========================================
@@ -627,147 +639,147 @@ const interactions = [
 // ===========================================
 
 const jokes = {
-  animal: [
-    "You’re feeling regal and mighty today! 🦁",
-    "Ferocious energy surging through you! 🐯",
-    "Strong and grounded vibes. 🐻",
-    "Loyal and playful spirit today. 🐶",
-    "Curious and clever! 🐱",
-    "Sly and mischievous energy. 🦊",
-    "Cuddly and relaxed today. 🐼",
-    "Calm and sleepy — taking it slow. 🐨",
-    "Leaping into the day! 🐸",
-    "Cheeky and fun energy. 🐵",
-    "Magical and unique — unicorn vibes! 🦄",
-    "Sinuous and mysterious. 🐍",
-    "Soaring above challenges. 🦅",
-    "Wild and adventurous! 🐺",
-    "Slow but steady today. 🐢"
-  ],
-  drink: [
-    "Strong and bold — just like your coffee! ☕",
-    "Calm and soothing today, like tea. 🍵",
-    "Feeling fancy and elegant. 🍸",
-    "Refreshing and lively — mojito vibes! 🍹",
-    "Chilled out with a casual brew. 🍺",
-    "Strong spirit and full-bodied energy! 🥃",
-    "Rich and smooth, like red wine. 🍷",
-    "Sparkling and celebratory today! 🥂",
-    "Fun and playful, like boba tea. 🧋",
-    "Zesty and bright — lemonade mood! 🍋",
-    "Sweet comfort for the soul. 🍫",
-    "Exotic and refined — sake style. 🍶",
-    "Simple and wholesome today. 🥛",
-    "Juicy and energizing! 🧃",
-    "Sweet, fruity, and bubbly vibes. 🍈"
-  ],
-  colors: [
-    "Feeling fresh and natural! 🌿",
-    "Calm and serene, like the ocean. 🌊",
-    "Sunny and cheerful today! ☀️",
-    "Passionate energy detected! 🔥",
-    "Mysterious and deep vibes. 🌑",
-    "Pure and peaceful today. 🕊️",
-    "Royal and majestic energy! 👑",
-    "Warm and vibrant today! 🍊",
-    "Sparkly and sweet vibes! ✨",
-    "Rainbow energy — all the colors of you! 🌈"
-  ],
-  auravibes: [
-    "Your aura is shining bright today! ✨",
-    "Flowing like a gentle river. 🌊",
-    "Burning with unstoppable energy! 🔥",
-    "Centered and strong. 🌱",
-    "Mystical and mysterious vibes. 💫",
-    "Soft and peaceful aura. 🌸",
-    "Charged and vibrant! ⚡",
-    "Cosmic energy surrounds you. 🪐",
-    "Dreamy and whimsical mood. 🌙",
-    "Sparkles everywhere you go! 🌟"
-  ],
-  piratevibes: [
-    "Ahoy! Ready to plunder the day! 🏴‍☠️",
-    "All hands on deck, captain! ⚓",
-    "Squawking secrets with your feathered friends! 🦜",
-    "Gold and jewels are calling your name! 💰",
-    "Boom! Cannons at the ready! 🔥",
-    "Charting a course to greatness! 🗺️",
-    "Taming the sea’s fiercest creatures! 🦑"
-  ],
-  wizard: [
-    "Casting charm spells like a pro! 🪄",
-    "Magical energy flows through you ✨",
-    "Beware, your incantations may misfire 😏",
-    "Seeing visions and mysteries today 🔮",
-    "You’re on fire… literally 🔥",
-    "Ice cold and magical ❄️",
-    "Dark magic, light heart 🌀"
-  ],
-  outfits: [
-    "Looking stylish today! 🧥",
-    "Elegance is in your aura. 👗",
-    "Active and sporty vibes! 👕",
-    "Relaxed and comfy — love it! 🩳",
-    "Honoring tradition with style. 👘",
-    "Cozy and warm for the day. 🧣",
-    "Trendy and fashionable! 🕶️",
-    "Heroic energy in your outfit! 🦸",
-    "Fun and playful — embrace the costume! 🎭",
-    "Power moves only, dressed to conquer! 🥋"
-  ],
-  elements: [
-    "Burning bright today! 🔥",
-    "Flowing smoothly and cool. 💧",
-    "Strong and grounded. 🌱",
-    "Light and breezy vibes. 💨",
-    "Electric energy surging! ⚡",
-    "Chilly and sharp! ❄️",
-    "Mysterious and cosmic. 🌌"
-  ],
-  powers: [
-    "Unstoppable strength today! 💪",
-    "Reading minds like a pro! 🧠",
-    "Inventive genius in full swing! 🦾",
-    "Time waits for no one — you control it! 🌀",
-    "Disappear like a shadow. 🕶️",
-    "Fast as lightning! ⚡",
-    "Cosmic awareness at its peak! 🌌"
-  ],
-  pirateoutfits: [
-    "Looking ready to plunder! 🪖",
-    "Captain chic on point! 🧥",
-    "Your parrot is your hype squad! 🦜",
-    "Gold shines brighter on you 💰",
-    "Anchors aweigh! ⚓",
-    "Sharp and deadly today! 🗡️",
-    "Walking like a true pirate 🦴"
-  ],
-  wizarditems: [
-    "Your wand is ready! 🪄",
-    "Spellbook full of secrets! 📜",
-    "Seeing all the mysteries 🔮",
-    "Robe flowing magically 🧙",
-    "Potion brewed to perfection 🧪",
-    "Mirror reveals your true self 🪞",
-    "Flying high on broomstick adventures 🧹"
-  ],
-  elementalitems: [
-    "Feeling the fire within! 🔥",
-    "Smooth and flowing energy 💧",
-    "Grounded and strong 🌱",
-    "Breezy and light today 💨",
-    "Shocking power surging ⚡",
-    "Chill and steady ❄️",
-    "Mysterious cosmic energy 🌌"
-  ],
-  auraitems: [
-    "Shining bright like a crystal ✨",
-    "Floral energy blooming 🌸",
-    "Cosmic vibes surround you 🪐",
-    "Flowing like water today 🌊",
-    "Fiery passion burning 🔥",
-    "Moonlight magic shines 🌙"
-  ],
+animal: [
+"You’re feeling regal and mighty today! 🦁",
+"Ferocious energy surging through you! 🐯",
+"Strong and grounded vibes. 🐻",
+"Loyal and playful spirit today. 🐶",
+"Curious and clever! 🐱",
+"Sly and mischievous energy. 🦊",
+"Cuddly and relaxed today. 🐼",
+"Calm and sleepy — taking it slow. 🐨",
+"Leaping into the day! 🐸",
+"Cheeky and fun energy. 🐵",
+"Magical and unique — unicorn vibes! 🦄",
+"Sinuous and mysterious. 🐍",
+"Soaring above challenges. 🦅",
+"Wild and adventurous! 🐺",
+"Slow but steady today. 🐢",
+],
+drink: [
+"Strong and bold — just like your coffee! ☕",
+"Calm and soothing today, like tea. 🍵",
+"Feeling fancy and elegant. 🍸",
+"Refreshing and lively — mojito vibes! 🍹",
+"Chilled out with a casual brew. 🍺",
+"Strong spirit and full-bodied energy! 🥃",
+"Rich and smooth, like red wine. 🍷",
+"Sparkling and celebratory today! 🥂",
+"Fun and playful, like boba tea. 🧋",
+"Zesty and bright — lemonade mood! 🍋",
+"Sweet comfort for the soul. 🍫",
+"Exotic and refined — sake style. 🍶",
+"Simple and wholesome today. 🥛",
+"Juicy and energizing! 🧃",
+"Sweet, fruity, and bubbly vibes. 🍈",
+],
+colors: [
+"Feeling fresh and natural! 🌿",
+"Calm and serene, like the ocean. 🌊",
+"Sunny and cheerful today! ☀️",
+"Passionate energy detected! 🔥",
+"Mysterious and deep vibes. 🌑",
+"Pure and peaceful today. 🕊️",
+"Royal and majestic energy! 👑",
+"Warm and vibrant today! 🍊",
+"Sparkly and sweet vibes! ✨",
+"Rainbow energy — all the colors of you! 🌈",
+],
+auravibes: [
+"Your aura is shining bright today! ✨",
+"Flowing like a gentle river. 🌊",
+"Burning with unstoppable energy! 🔥",
+"Centered and strong. 🌱",
+"Mystical and mysterious vibes. 💫",
+"Soft and peaceful aura. 🌸",
+"Charged and vibrant! ⚡",
+"Cosmic energy surrounds you. 🪐",
+"Dreamy and whimsical mood. 🌙",
+"Sparkles everywhere you go! 🌟",
+],
+piratevibes: [
+"Ahoy! Ready to plunder the day! 🏴‍☠️",
+"All hands on deck, captain! ⚓",
+"Squawking secrets with your feathered friends! 🦜",
+"Gold and jewels are calling your name! 💰",
+"Boom! Cannons at the ready! 🔥",
+"Charting a course to greatness! 🗺️",
+"Taming the sea’s fiercest creatures! 🦑",
+],
+wizard: [
+"Casting charm spells like a pro! 🪄",
+"Magical energy flows through you ✨",
+"Beware, your incantations may misfire 😏",
+"Seeing visions and mysteries today 🔮",
+"You’re on fire… literally 🔥",
+"Ice cold and magical ❄️",
+"Dark magic, light heart 🌀",
+],
+outfits: [
+"Looking stylish today! 🧥",
+"Elegance is in your aura. 👗",
+"Active and sporty vibes! 👕",
+"Relaxed and comfy — love it! 🩳",
+"Honoring tradition with style. 👘",
+"Cozy and warm for the day. 🧣",
+"Trendy and fashionable! 🕶️",
+"Heroic energy in your outfit! 🦸",
+"Fun and playful — embrace the costume! 🎭",
+"Power moves only, dressed to conquer! 🥋",
+],
+elements: [
+"Burning bright today! 🔥",
+"Flowing smoothly and cool. 💧",
+"Strong and grounded. 🌱",
+"Light and breezy vibes. 💨",
+"Electric energy surging! ⚡",
+"Chilly and sharp! ❄️",
+"Mysterious and cosmic. 🌌",
+],
+powers: [
+"Unstoppable strength today! 💪",
+"Reading minds like a pro! 🧠",
+"Inventive genius in full swing! 🦾",
+"Time waits for no one — you control it! 🌀",
+"Disappear like a shadow. 🕶️",
+"Fast as lightning! ⚡",
+"Cosmic awareness at its peak! 🌌",
+],
+pirateoutfits: [
+"Looking ready to plunder! 🪖",
+"Captain chic on point! 🧥",
+"Your parrot is your hype squad! 🦜",
+"Gold shines brighter on you 💰",
+"Anchors aweigh! ⚓",
+"Sharp and deadly today! 🗡️",
+"Walking like a true pirate 🦴",
+],
+wizarditems: [
+"Your wand is ready! 🪄",
+"Spellbook full of secrets! 📜",
+"Seeing all the mysteries 🔮",
+"Robe flowing magically 🧙",
+"Potion brewed to perfection 🧪",
+"Mirror reveals your true self 🪞",
+"Flying high on broomstick adventures 🧹",
+],
+elementalitems: [
+"Feeling the fire within! 🔥",
+"Smooth and flowing energy 💧",
+"Grounded and strong 🌱",
+"Breezy and light today 💨",
+"Shocking power surging ⚡",
+"Chill and steady ❄️",
+"Mysterious cosmic energy 🌌",
+],
+auraitems: [
+"Shining bright like a crystal ✨",
+"Floral energy blooming 🌸",
+"Cosmic vibes surround you 🪐",
+"Flowing like water today 🌊",
+"Fiery passion burning 🔥",
+"Moonlight magic shines 🌙",
+],
 tinkabell: {
 low: ["your fairy level is FUCKING DISGUSTING. 😂", "You shine bright like a diamond...covered in shit. 💩"],
 medium: ["Your wings are growing. 🦋", "fairy training is starting to pay off. 💖"],
@@ -808,45 +820,15 @@ low: ["Compact and efficient! 🏋️‍♂️", "Fun-sized champion! 🏆"],
 medium: ["Perfectly balanced. ⚖️", "Reliable and effective! 💪"],
 high: ["Legendary proportions! 📏", "Folklore-worthy size! 📚"],
 },
-mila: {
-low: ["Mila glanced and walked away. 🐾", "She tolerates your existence. 🐱"],
-medium: ["Mila approves for now. 👍", "She blinked slowly. That is cat love. 💖"],
-high: ["Mila purrs loudly in your honor! 😻", "Mila adores you. 🐾"],
-},
-ivy: {
-low: ["Ivy is pretending you do not exist. 😒", "Denied cuddle privileges. ❌"],
-medium: ["Ivy tolerates you. 🤔", "She let you exist in her space. 🏡"],
-high: ["Ivy loves you unconditionally! 💚", "You are the chosen lap human! 🏆"],
-},
-theo: {
-low: ["Theo is pretending you do not exist. 😤", "Theo left the room. 🏃‍♂️"],
-medium: ["Theo tolerates you. 🤝", "Theo sat next to you. 🐾"],
-high: ["Theo loves you unconditionally! 💙", "Theo will nap on you later. 💤"],
-},
-fluffy: {
-low: ["Fluffy wagged half a tail. 🐾", "Fluffy is ignoring your messages. 💬"],
-medium: ["Fluffy smiled a little. 😊", "Fluffy seems mildly impressed. 👀"],
-high: ["Fluffy cannot stop purring! 🐱", "Fluffy thinks you are the best human! 🌟"],
-},
 daddy: {
 low: ["Not very daddy today. 😬", "Maybe work on your confidence. 💪"],
 medium: ["You are somewhat daddy. 👨", "The vibes are respectable. 👍"],
 high: ["Certified DILF energy. 😎", "The room goes quiet when you enter. 🕴"],
 },
-mama: {
-low: ["Not very mama today. 😬", "Maybe work on your confidence. 💪"],
-medium: ["You are somewhat mama. 👨", "The vibes are respectable. 👍"],
-high: ["Certified MAMA energy. 😎", "The room goes quiet when you enter. 🕴"],
-},
 pirate: {
 low: ["You dropped your compass. 🧭", "Your ship is still in dock. 🚢"],
 medium: ["You are swashbuckling nicely. ⚓", "The crew respects you. 👑"],
 high: ["Captain material! 🏴‍☠️", "The seas whisper your name! 🌊"],
-},
-captain: {
-low: ["You’ve lost your map, Captain. 🗺️","Your crew is questioning your orders. ☠️","Even the parrot isn’t listening today. 🦜",],
-medium: ["The ship sails steady under your command. ⚓","Your crew follows your orders with pride. 🏴‍☠️","You steer true through calm and storm alike. 🌊",],
-high: ["All hail the legendary Captain! 👑","Your name echoes across the seven seas! 🌅","Even Davy Jones salutes your command! 🏴‍☠️",],
 },
 treasure_hunting: {
 low: ["Ye found an empty chest... again. 🪣", "Turns out the 'X' was bird poop. 🕊️"],
@@ -897,7 +879,7 @@ parley: {
 low: ["You spilled rum on the negotiation table. 🍹", "They took your word... and your boots. 🥾"],
 medium: ["You struck a fair bargain, Captain. ⚖️", "Your tongue be as sharp as your sword. 💬⚔️"],
 high: ["You turned enemies into allies with a word! 🤝🏴‍☠️", "Your diplomacy saves fleets! 🕊️🌊"],
-  },
+},
 swordlunge: {
 low: ["You tripped on the lunge. 🤦‍♂️", "Practice makes perfect. 💪"],
 medium: ["A clean strike. ⚔️", "Your stance is strong. 💪"],
@@ -1137,42 +1119,42 @@ return message;
 // ===========================================
 
 miniGames.bootybattle = (senderRaw, userRaw) => {
-  const sender = cleanUsername(senderRaw);
-  const target = cleanUsername(userRaw);
-  const senderDisplay = formatDisplayName(senderRaw);
-  const targetDisplay = formatDisplayName(userRaw);
+const sender = cleanUsername(senderRaw);
+const target = cleanUsername(userRaw);
+const senderDisplay = formatDisplayName(senderRaw);
+const targetDisplay = formatDisplayName(userRaw);
 
-  if (!userRaw || sender === target) {
-    return `🍑 ${senderDisplay} tried to compare booties with themselves... confidence or madness? 🤔`;
-  }
+if (!userRaw || sender === target) {
+return `🍑 ${senderDisplay} tried to compare booties with themselves... confidence or madness? 🤔`;
+}
 
-  const today = new Date().toLocaleDateString("en-GB");
-  const seedSender = `${today}-booty-${sender}`;
-  const seedTarget = `${today}-booty-${target}`;
+const today = new Date().toLocaleDateString("en-GB");
+const seedSender = `${today}-booty-${sender}`;
+const seedTarget = `${today}-booty-${target}`;
 
-  const cfg = custombutt.butt;
-  const senderBooty = generateValue(seedSender, "butt", cfg.max, cfg.min, sender);
-  const targetBooty = generateValue(seedTarget, "butt", cfg.max, cfg.min, target);
+const cfg = stats.butt;
+const senderBooty = generateValue(seedSender, "butt", cfg.max, cfg.min, sender);
+const targetBooty = generateValue(seedTarget, "butt", cfg.max, cfg.min, target);
 
-  if (senderBooty === targetBooty) {
-    return `⚖️ ${senderDisplay} and ${targetDisplay} both have equally glorious booties at ${senderBooty}% fruitiness! 🍑 A tie worthy of song! 🎶`;
-  }
+if (senderBooty === targetBooty) {
+return `⚖️ ${senderDisplay} and ${targetDisplay} both have equally glorious booties at ${senderBooty}% fruitiness! 🍑 A tie worthy of song! 🎶`;
+}
 
-  const winner = senderBooty > targetBooty
-    ? { name: senderDisplay, booty: senderBooty }
-    : { name: targetDisplay, booty: targetBooty };
-  const loser = senderBooty > targetBooty
-    ? { name: targetDisplay, booty: targetBooty }
-    : { name: senderDisplay, booty: senderBooty };
+const winner = senderBooty > targetBooty
+? { name: senderDisplay, booty: senderBooty }
+: { name: targetDisplay, booty: targetBooty };
+const loser = senderBooty > targetBooty
+? { name: targetDisplay, booty: targetBooty }
+: { name: senderDisplay, booty: senderBooty };
 
-  const outcomes = [
-    `🍑 ${winner.name} shook that booty with ${winner.booty}% fruitiness! ${loser.name} tried... but gravity was not on their side. ⚓`,
-    `🏴‍☠️ ${winner.name} wins the Booty Battle! ${loser.name} must polish the captain’s chair in shame (${winner.booty}% vs ${loser.booty}%). 🪑`,
-    `🔥 ${winner.name}’s booty be the talk of the seven seas! ${loser.name} be left in the shadows (${winner.booty}% vs ${loser.booty}%). 🌊`,
-    `💫 ${winner.name} has the juiciest booty in all the ports! ${loser.name} can only stare in awe. 🍑`
-  ];
+const outcomes = [
+`🍑 ${winner.name} shook that booty with ${winner.booty}% fruitiness! ${loser.name} tried... but gravity was not on their side. ⚓`,
+`🏴‍☠️ ${winner.name} wins the Booty Battle! ${loser.name} must polish the captain’s chair in shame (${winner.booty}% vs ${loser.booty}%). 🪑`,
+`🔥 ${winner.name}’s booty be the talk of the seven seas! ${loser.name} be left in the shadows (${winner.booty}% vs ${loser.booty}%). 🌊`,
+`💫 ${winner.name} has the juiciest booty in all the ports! ${loser.name} can only stare in awe. 🍑`
+];
 
-  return pickRandom(outcomes);
+return pickRandom(outcomes);
 };
 
 // ===========================================
@@ -1180,42 +1162,42 @@ miniGames.bootybattle = (senderRaw, userRaw) => {
 // ===========================================
 
 miniGames.plunderraid = (senderRaw, userRaw) => {
-  const sender = cleanUsername(senderRaw);
-  const target = cleanUsername(userRaw);
-  const senderDisplay = formatDisplayName(senderRaw);
-  const targetDisplay = formatDisplayName(userRaw);
+const sender = cleanUsername(senderRaw);
+const target = cleanUsername(userRaw);
+const senderDisplay = formatDisplayName(senderRaw);
+const targetDisplay = formatDisplayName(userRaw);
 
-  if (!userRaw || sender === target) {
-    return `🏴‍☠️ ${senderDisplay} tried to raid their own ship... that’s mutiny, ye scallywag! ⚓`;
-  }
+if (!userRaw || sender === target) {
+return `🏴‍☠️ ${senderDisplay} tried to raid their own ship... that’s mutiny, ye scallywag! ⚓`;
+}
 
-  const today = new Date().toLocaleDateString("en-GB");
-  const seedSender = `${today}-plunder-${sender}`;
-  const seedTarget = `${today}-plunder-${target}`;
+const today = new Date().toLocaleDateString("en-GB");
+const seedSender = `${today}-plunder-${sender}`;
+const seedTarget = `${today}-plunder-${target}`;
 
-  const cfg = piracy.plunder;
-  const senderLoot = generateValue(seedSender, "plunder", cfg.max, cfg.min, sender);
-  const targetLoot = generateValue(seedTarget, "plunder", cfg.max, cfg.min, target);
+const cfg = piracy.plunder;
+const senderLoot = generateValue(seedSender, "plunder", cfg.max, cfg.min, sender);
+const targetLoot = generateValue(seedTarget, "plunder", cfg.max, cfg.min, target);
 
-  if (senderLoot === targetLoot) {
-    return `💎 ${senderDisplay} and ${targetDisplay} raided the same island and found equal treasure (${senderLoot}% each)! A fair share for both crews! ⚖️`;
-  }
+if (senderLoot === targetLoot) {
+return `💎 ${senderDisplay} and ${targetDisplay} raided the same island and found equal treasure (${senderLoot}% each)! A fair share for both crews! ⚖️`;
+}
 
-  const winner = senderLoot > targetLoot
-    ? { name: senderDisplay, loot: senderLoot }
-    : { name: targetDisplay, loot: targetLoot };
-  const loser = senderLoot > targetLoot
-    ? { name: targetDisplay, loot: targetLoot }
-    : { name: senderDisplay, loot: senderLoot };
+const winner = senderLoot > targetLoot
+? { name: senderDisplay, loot: senderLoot }
+: { name: targetDisplay, loot: targetLoot };
+const loser = senderLoot > targetLoot
+? { name: targetDisplay, loot: targetLoot }
+: { name: senderDisplay, loot: senderLoot };
 
-  const outcomes = [
-    `💰 ${winner.name} pillaged with unmatched fury, looting ${winner.loot}% of the treasure! ${loser.name} was left with scraps (${loser.loot}%). 🪙`,
-    `🏴‍☠️ ${winner.name} struck gold while ${loser.name} found only coconuts. A rich victory! 🥥💎`,
-    `🔥 ${winner.name}’s crew raided the fort, leaving ${loser.name} adrift in shame! (${winner.loot}% vs ${loser.loot}%) ☠️`,
-    `🪓 ${winner.name} took the booty and the bragging rights! ${loser.name}’s crew be swabbing decks for a week! 🧽`
-  ];
+const outcomes = [
+`💰 ${winner.name} pillaged with unmatched fury, looting ${winner.loot}% of the treasure! ${loser.name} was left with scraps (${loser.loot}%). 🪙`,
+`🏴‍☠️ ${winner.name} struck gold while ${loser.name} found only coconuts. A rich victory! 🥥💎`,
+`🔥 ${winner.name}’s crew raided the fort, leaving ${loser.name} adrift in shame! (${winner.loot}% vs ${loser.loot}%) ☠️`,
+`🪓 ${winner.name} took the booty and the bragging rights! ${loser.name}’s crew be swabbing decks for a week! 🧽`
+];
 
-  return pickRandom(outcomes);
+return pickRandom(outcomes);
 };
 
 // ===========================================
@@ -1223,42 +1205,42 @@ miniGames.plunderraid = (senderRaw, userRaw) => {
 // ===========================================
 
 miniGames.pistolfight = (senderRaw, userRaw) => {
-  const sender = cleanUsername(senderRaw);
-  const target = cleanUsername(userRaw);
-  const senderDisplay = formatDisplayName(senderRaw);
-  const targetDisplay = formatDisplayName(userRaw);
+const sender = cleanUsername(senderRaw);
+const target = cleanUsername(userRaw);
+const senderDisplay = formatDisplayName(senderRaw);
+const targetDisplay = formatDisplayName(userRaw);
 
-  if (!userRaw || sender === target) {
-    return `💥 ${senderDisplay} tried to duel themselves... and missed! 🤦‍☠️`;
-  }
+if (!userRaw || sender === target) {
+return `💥 ${senderDisplay} tried to duel themselves... and missed! 🤦‍☠️`;
+}
 
-  const today = new Date().toLocaleDateString("en-GB");
-  const seedSender = `${today}-pistol-${sender}`;
-  const seedTarget = `${today}-pistol-${target}`;
+const today = new Date().toLocaleDateString("en-GB");
+const seedSender = `${today}-pistol-${sender}`;
+const seedTarget = `${today}-pistol-${target}`;
 
-  const cfg = piracy.intimidation;
-  const senderAim = generateValue(seedSender, "intimidation", cfg.max, cfg.min, sender);
-  const targetAim = generateValue(seedTarget, "intimidation", cfg.max, cfg.min, target);
+const cfg = piracy.intimidation;
+const senderAim = generateValue(seedSender, "intimidation", cfg.max, cfg.min, sender);
+const targetAim = generateValue(seedTarget, "intimidation", cfg.max, cfg.min, target);
 
-  if (senderAim === targetAim) {
-    return `🔫 ${senderDisplay} and ${targetDisplay} fired at once — smoke clears, both unharmed! A draw at ${senderAim}%! ☁️`;
-  }
+if (senderAim === targetAim) {
+return `🔫 ${senderDisplay} and ${targetDisplay} fired at once — smoke clears, both unharmed! A draw at ${senderAim}%! ☁️`;
+}
 
-  const winner = senderAim > targetAim
-    ? { name: senderDisplay, aim: senderAim }
-    : { name: targetDisplay, aim: targetAim };
-  const loser = senderAim > targetAim
-    ? { name: targetDisplay, aim: targetAim }
-    : { name: senderDisplay, aim: senderAim };
+const winner = senderAim > targetAim
+? { name: senderDisplay, aim: senderAim }
+: { name: targetDisplay, aim: targetAim };
+const loser = senderAim > targetAim
+? { name: targetDisplay, aim: targetAim }
+: { name: senderDisplay, aim: senderAim };
 
-  const outcomes = [
-    `💀 ${winner.name} shot true — ${loser.name} drops their pistol in surrender! (${winner.aim}% vs ${loser.aim}%) ⚓`,
-    `☠️ ${loser.name} fired too soon! ${winner.name} takes the win with cold precision! 🎯`,
-    `🔥 ${winner.name} blasted ${loser.name} clean off the deck! (${winner.aim}% vs ${loser.aim}%) 🏴‍☠️`,
-    `🏆 ${winner.name} wins the pistol duel! ${loser.name} be smokin’ — and not in a good way. 💨`
-  ];
+const outcomes = [
+`💀 ${winner.name} shot true — ${loser.name} drops their pistol in surrender! (${winner.aim}% vs ${loser.aim}%) ⚓`,
+`☠️ ${loser.name} fired too soon! ${winner.name} takes the win with cold precision! 🎯`,
+`🔥 ${winner.name} blasted ${loser.name} clean off the deck! (${winner.aim}% vs ${loser.aim}%) 🏴‍☠️`,
+`🏆 ${winner.name} wins the pistol duel! ${loser.name} be smokin’ — and not in a good way. 💨`
+];
 
-  return pickRandom(outcomes);
+return pickRandom(outcomes);
 };
 
 
@@ -1267,42 +1249,42 @@ miniGames.pistolfight = (senderRaw, userRaw) => {
 // ===========================================
 
 miniGames.shipbattle = (senderRaw, userRaw) => {
-  const sender = cleanUsername(senderRaw);
-  const target = cleanUsername(userRaw);
-  const senderDisplay = formatDisplayName(senderRaw);
-  const targetDisplay = formatDisplayName(userRaw);
+const sender = cleanUsername(senderRaw);
+const target = cleanUsername(userRaw);
+const senderDisplay = formatDisplayName(senderRaw);
+const targetDisplay = formatDisplayName(userRaw);
 
-  if (!userRaw || sender === target) {
-    return `🛳️ ${senderDisplay} tried to battle their own ship… the crew be confused! 🤔`;
-  }
+if (!userRaw || sender === target) {
+return `🛳️ ${senderDisplay} tried to battle their own ship… the crew be confused! 🤔`;
+}
 
-  const today = new Date().toLocaleDateString("en-GB");
-  const seedSender = `${today}-ship-${sender}`;
-  const seedTarget = `${today}-ship-${target}`;
+const today = new Date().toLocaleDateString("en-GB");
+const seedSender = `${today}-ship-${sender}`;
+const seedTarget = `${today}-ship-${target}`;
 
-  const cfg = piracy.cannon_use;
-  const senderPower = generateValue(seedSender, "cannon_use", cfg.max, cfg.min, sender);
-  const targetPower = generateValue(seedTarget, "cannon_use", cfg.max, cfg.min, target);
+const cfg = piracy.cannon_use;
+const senderPower = generateValue(seedSender, "cannon_use", cfg.max, cfg.min, sender);
+const targetPower = generateValue(seedTarget, "cannon_use", cfg.max, cfg.min, target);
 
-  if (senderPower === targetPower) {
-    return `💣 ${senderDisplay} and ${targetDisplay} fired their cannons — a perfect draw! Both ships still float (${senderPower}% vs ${targetPower}%)! ⚓`;
-  }
+if (senderPower === targetPower) {
+return `💣 ${senderDisplay} and ${targetDisplay} fired their cannons — a perfect draw! Both ships still float (${senderPower}% vs ${targetPower}%)! ⚓`;
+}
 
-  const winner = senderPower > targetPower
-    ? { name: senderDisplay, power: senderPower }
-    : { name: targetDisplay, power: targetPower };
-  const loser = senderPower > targetPower
-    ? { name: targetDisplay, power: targetPower }
-    : { name: senderDisplay, power: senderPower };
+const winner = senderPower > targetPower
+? { name: senderDisplay, power: senderPower }
+: { name: targetDisplay, power: targetPower };
+const loser = senderPower > targetPower
+? { name: targetDisplay, power: targetPower }
+: { name: senderDisplay, power: senderPower };
 
-  const outcomes = [
-    `💥 ${winner.name} broadside-shattered ${loser.name}’s hull! (${winner.power}% vs ${loser.power}%) — glorious victory! 🏴‍☠️`,
-    `🔥 ${loser.name}’s ship be sinking! ${winner.name} claims the spoils of the sea! ⚓`,
-    `🌊 ${winner.name} caught the wind just right — ${loser.name} be sent to Davy Jones’ locker! ☠️`,
-    `🏆 ${winner.name} wins the naval clash! ${loser.name} waves the white flag (${winner.power}% vs ${loser.power}%). 🏴‍☠️`
-  ];
+const outcomes = [
+`💥 ${winner.name} broadside-shattered ${loser.name}’s hull! (${winner.power}% vs ${loser.power}%) — glorious victory! 🏴‍☠️`,
+`🔥 ${loser.name}’s ship be sinking! ${winner.name} claims the spoils of the sea! ⚓`,
+`🌊 ${winner.name} caught the wind just right — ${loser.name} be sent to Davy Jones’ locker! ☠️`,
+`🏆 ${winner.name} wins the naval clash! ${loser.name} waves the white flag (${winner.power}% vs ${loser.power}%). 🏴‍☠️`
+];
 
-  return pickRandom(outcomes);
+return pickRandom(outcomes);
 };
 
 // ===========================================
@@ -1310,42 +1292,42 @@ miniGames.shipbattle = (senderRaw, userRaw) => {
 // ===========================================
 
 miniGames.swordfight = (senderRaw, userRaw) => {
-  const sender = cleanUsername(senderRaw);
-  const target = cleanUsername(userRaw);
-  const senderDisplay = formatDisplayName(senderRaw);
-  const targetDisplay = formatDisplayName(userRaw);
+const sender = cleanUsername(senderRaw);
+const target = cleanUsername(userRaw);
+const senderDisplay = formatDisplayName(senderRaw);
+const targetDisplay = formatDisplayName(userRaw);
 
-  if (!userRaw || sender === target) {
-    return `☠️ ${senderDisplay} tried to duel themselves... ye fool! 🤦‍☠️`;
-  }
+if (!userRaw || sender === target) {
+return `☠️ ${senderDisplay} tried to duel themselves... ye fool! 🤦‍☠️`;
+}
 
-  const today = new Date().toLocaleDateString("en-GB");
-  const seedSender = `${today}-sword-${sender}`;
-  const seedTarget = `${today}-sword-${target}`;
+const today = new Date().toLocaleDateString("en-GB");
+const seedSender = `${today}-sword-${sender}`;
+const seedTarget = `${today}-sword-${target}`;
 
-  const cfg = piracy.swordsmanship;
-  const senderSkill = generateValue(seedSender, "swordsmanship", cfg.max, cfg.min, sender);
-  const targetSkill = generateValue(seedTarget, "swordsmanship", cfg.max, cfg.min, target);
+const cfg = piracy.swordsmanship;
+const senderSkill = generateValue(seedSender, "swordsmanship", cfg.max, cfg.min, sender);
+const targetSkill = generateValue(seedTarget, "swordsmanship", cfg.max, cfg.min, target);
 
-  if (senderSkill === targetSkill) {
-    return `⚔️ ${senderDisplay} and ${targetDisplay} clashed blades in an even match! Both fought bravely with skill ${senderSkill}%! 🏴‍☠️`;
-  }
+if (senderSkill === targetSkill) {
+return `⚔️ ${senderDisplay} and ${targetDisplay} clashed blades in an even match! Both fought bravely with skill ${senderSkill}%! 🏴‍☠️`;
+}
 
-  const winner = senderSkill > targetSkill
-    ? { name: senderDisplay, skill: senderSkill }
-    : { name: targetDisplay, skill: targetSkill };
-  const loser = senderSkill > targetSkill
-    ? { name: targetDisplay, skill: targetSkill }
-    : { name: senderDisplay, skill: senderSkill };
+const winner = senderSkill > targetSkill
+? { name: senderDisplay, skill: senderSkill }
+: { name: targetDisplay, skill: targetSkill };
+const loser = senderSkill > targetSkill
+? { name: targetDisplay, skill: targetSkill }
+: { name: senderDisplay, skill: senderSkill };
 
-  const outcomes = [
-    `⚔️ ${winner.name} disarmed ${loser.name} with a dazzling display of blade mastery (${winner.skill}% vs ${loser.skill}%)! 🏴‍☠️`,
-    `💥 ${loser.name} took a step back as ${winner.name}’s sword gleamed under the sun — victory to ${winner.name}! ☠️`,
-    `🩸 ${winner.name} struck true! ${loser.name} drops their sword, humbled by skill ${winner.skill}%! ⚓`,
-    `🏆 ${winner.name} wins the duel! ${loser.name} shall be swabbing decks tonight (${winner.skill}% vs ${loser.skill}%). 🪣`
-  ];
+const outcomes = [
+`⚔️ ${winner.name} disarmed ${loser.name} with a dazzling display of blade mastery (${winner.skill}% vs ${loser.skill}%)! 🏴‍☠️`,
+`💥 ${loser.name} took a step back as ${winner.name}’s sword gleamed under the sun — victory to ${winner.name}! ☠️`,
+`🩸 ${winner.name} struck true! ${loser.name} drops their sword, humbled by skill ${winner.skill}%! ⚓`,
+`🏆 ${winner.name} wins the duel! ${loser.name} shall be swabbing decks tonight (${winner.skill}% vs ${loser.skill}%). 🪣`
+];
 
-  return pickRandom(outcomes);
+return pickRandom(outcomes);
 };
 
 // ===========================================
@@ -1396,12 +1378,44 @@ return pickRandom(outcomes);
 // ===========================================
 
 // ===========================================
+// 🗣️ WORD COUNTERS - CONFIGURATION
+// ===========================================
+
+const wordCounters = {
+  waffles: { label: "waffles" },
+  cookies: { label: "cookies" },
+  coffee:  { label: "coffee" },
+  bananas: { label: "bananas" },
+  hugs:    { label: "hugs" },
+};
+
+// ===========================================
+// 🔤 ACTION WORD HELPER
+// ===========================================
+
+function getActionWord(type) {
+  return type
+    .replace("throwshoe", "threw a shoe at")
+    .replace("fliptable", "flipped a table")
+    .replace("highfive", "high-fived")
+    .replace("love", "sent love to")
+    .replace("bonk", "bonked")
+    .replace("boop", "booped")
+    .replace("hug", "hugged")
+    .replace("kiss", "kissed")
+    .replace("pat", "patted")
+    .replace("slap", "slapped")
+    .replace("spank", "spanked")
+}
+
+// ===========================================
 // 📅 DAILY STORAGE & COUNTERS
 // ===========================================
 
-const aspectsOfTheDay = { daddy: {}, pp: {}, bb: {}, princess: {}, goodgirl: {}, catmom: {}, stinker: {}, pirate: {}, captain: {}, animal: {}, drink: {} };
-const wordsOfTheDay = { waffles: {} };
-const lock = {}; 
+const aspectsOfTheDay = { daddy: {}, pp: {}, bb: {}, princess: {}, goodgirl: {}, pirate: {}, captain: {}, animal: {}, drink: {} };
+const wordsOfTheDay = {};
+const dailyConsents = {};
+const lock = {};
 const statCounters = {};
 const commandCounters = {};
 
@@ -1425,6 +1439,106 @@ lock[type] = true;
 try {
 const seed = `${today}-${type}`;
 let value, message = "";
+
+// ===========================================
+// 🤝 INTERACTIONS (with optional consent system + daily consent memory)
+// ===========================================
+
+if (interactions.includes(type) || type === "accept" || type === "deny") {
+  const requireConsent = req.query.consent === "true";
+  const today = new Date().toLocaleDateString("en-GB");
+
+  if (type === "accept") {
+    const pending = Array.from(pendingConsents.entries())
+      .find(([t, v]) => v.target === sender);
+
+    if (!pending) {
+      res.send(`${senderDisplay}, there is nothing to accept.`);
+      return;
+    }
+
+    const [target, info] = pending;
+    clearTimeout(info.timeout);
+    pendingConsents.delete(target);
+
+    if (!dailyConsents[today]) dailyConsents[today] = {};
+    if (!dailyConsents[today][sender]) dailyConsents[today][sender] = [];
+    if (!dailyConsents[today][sender].includes(info.sender)) {
+      dailyConsents[today][sender].push(info.sender);
+    }
+
+    const pairSeed = `${today}-${info.type}-${[info.sender, info.target].sort().join("-")}`;
+    const value = generateValue(pairSeed, info.type, 100, 1);
+
+    const tempCfg = { min: 1, max: 100, levels: [30, 70] };
+    const joke = getJoke(req, info.type, value, tempCfg);
+    const actionWord = getActionWord(info.type);
+
+    const message = `${formatDisplayName(info.sender)} ${actionWord} ${formatDisplayName(info.target)} with ${value}% power!${joke}`;
+    res.send(message);
+    return;
+  }
+
+  if (type === "deny") {
+    const pending = Array.from(pendingConsents.entries())
+      .find(([t, v]) => v.target === sender);
+
+    if (!pending) {
+      res.send(`${senderDisplay}, there is nothing to deny.`);
+      return;
+    }
+
+    const [target, info] = pending;
+    clearTimeout(info.timeout);
+    pendingConsents.delete(target);
+
+    res.send(`🍑 ${formatDisplayName(info.target)} denied your ${info.type}, ${formatDisplayName(info.sender)}!`);
+    return;
+  }
+
+  const actionWord = getActionWord(type);
+
+  if (!userRaw || sender === cleanUsername(userRaw)) {
+    res.send(`${senderDisplay} tried to ${type} the air! 💨`);
+    return;
+  }
+
+  const alreadyApproved =
+    dailyConsents[today]?.[userRaw]?.includes(sender) || false;
+
+  if (requireConsent && !alreadyApproved) {
+    if (pendingConsents.has(userRaw)) {
+      res.send(`${targetDisplay} already has a pending consent request.`);
+      return;
+    }
+
+    const timeout = setTimeout(() => {
+      pendingConsents.delete(userRaw);
+    }, CONSENT_TIMEOUT_MS);
+
+    pendingConsents.set(userRaw, { sender, target: userRaw, type, timeout });
+
+    const message =
+      `🫱 ${senderDisplay} wants to ${type} ${targetDisplay}!\n` +
+      `${targetDisplay}, type !accept or !deny within ${CONSENT_TIMEOUT_MS / 1000} seconds.`;
+    res.send(message);
+    return;
+  }
+
+  const pairSeed = `${today}-${type}-${[sender, userRaw].sort().join("-")}`;
+  const value = generateValue(pairSeed, type, 100, 1);
+
+  const tempCfg = { min: 1, max: 100, levels: [30, 70] };
+  const joke = getJoke(req, type, value, tempCfg);
+  const message = `${senderDisplay} ${actionWord} ${targetDisplay} with ${value}% power!${joke}`;
+
+  statCounters[sender] = statCounters[sender] || {};
+  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+  commandCounters[type] = (commandCounters[type] || 0) + 1;
+
+  res.send(message);
+  return;
+}
 
 // ===========================================
 // 🏆 LEADERBOARD
@@ -1487,6 +1601,7 @@ let eventDate = new Date(`${currentYear}-07-10T00:00:00`);
 if (now > eventDate) {
 eventDate = new Date(`${currentYear + 1}-07-10T00:00:00`);
 }
+
 const diffMs = eventDate - now;
 const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
 const diffHours = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
@@ -1501,68 +1616,92 @@ return res.send(message);
 }
 
 // ===========================================
-// WORD TRACKER - WAFFLES
+// 🧮 GENERIC WORD COUNTER
 // ===========================================
 
-wordsOfTheDay.waffles[today] = wordsOfTheDay.waffles[today] || { count: 0 };
+for (const [wordKey, cfg] of Object.entries(wordCounters)) {
+const word = cfg.label || wordKey;
 
-if (type === "addwaffles") {
-wordsOfTheDay.waffles[today].count += 1;
-statCounters[sender] = statCounters[sender] || {};
-statCounters[sender]["addwaffles"] = (statCounters[sender]["addwaffles"] || 0) + 1;
-commandCounters["addwaffles"] = (commandCounters["addwaffles"] || 0) + 1;
-return res.send(`${senderRaw} has added "waffles" +1. Total "waffles" count today: ${wordsOfTheDay.waffles[today].count}.`);
+if (!wordsOfTheDay[wordKey]) wordsOfTheDay[wordKey] = {};
+if (!wordsOfTheDay[wordKey][today]) {
+wordsOfTheDay[wordKey][today] = { count: 0 };
 }
-if (type === "removewaffles") {
-if (wordsOfTheDay.fluffy[today].count > 0) {
-wordsOfTheDay.fluffy[today].count -= 1;
+
+const store = wordsOfTheDay[wordKey][today];
+
+if (type === `add${wordKey}`) {
+store.count += 1;
 statCounters[sender] = statCounters[sender] || {};
-statCounters[sender]["removewaffles"] = (statCounters[sender]["removewaffles"] || 0) + 1;
-commandCounters["removewaffles"] = (commandCounters["removewaffles"] || 0) + 1;
-return res.send(`${senderRaw} has removed "waffles" -1. Total "waffles" count today: ${wordsOfTheDay.fluffy[today].count}.`);
+statCounters[sender][type] =
+(statCounters[sender][type] || 0) + 1;
+commandCounters[type] = (commandCounters[type] || 0) + 1;
+
+return res.send(
+`${senderRaw} has added "${word}" +1. Total "${word}" count today: ${store.count}.`
+);
+}
+
+if (type === `remove${wordKey}`) {
+if (store.count > 0) {
+store.count -= 1;
+statCounters[sender] = statCounters[sender] || {};
+statCounters[sender][type] =
+(statCounters[sender][type] || 0) + 1;
+commandCounters[type] = (commandCounters[type] || 0) + 1;
+
+return res.send(
+`${senderRaw} has removed "${word}" -1. Total "${word}" count today: ${store.count}.`
+);
 } else {
-return res.send(`The "Fluffy" count is already 0. Cannot remove further.`);
+return res.send(
+`The "${word}" count is already 0. Cannot remove further.`
+);
 }
 }
-if (type === "waffles") {
-const count = wordsOfTheDay.waffles[today].count;
-return res.send(`"waffles" has been said ${count} time${count !== 1 ? "s" : ""} today!.`);
+
+if (type === wordKey) {
+const count = store.count;
+return res.send(
+`"${word}" has been said ${count} time${
+count !== 1 ? "s" : ""
+} today!.`
+);
+}
 }
 
 // ===========================================
-// ⚓ CAPTAIN & 🏴‍☠️ CAPTAIN OF THE DAY
+// 🏴‍☠️ CAPTAIN & CAPTAIN OF THE DAY
 // ===========================================
 
 if (type === "captain") {
-  const cfg = piracy.captain;
-  value = generateValue(seed, type, cfg.max, cfg.min, sender);
-  const space = spaceIf(cfg.unitSpace);
+const cfg = piracy.captain;
+value = generateValue(seed, type, cfg.max, cfg.min, sender);
+const space = spaceIf(cfg.unitSpace);
 
-  let level = "low";
-  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
-  if (value > cfg.levels[1]) level = "high";
+if (value === 100 && !aspectsOfTheDay.captain[today]) {
+aspectsOfTheDay.captain[today] = { user: sender, value };
+message = `🏴‍☠️ ${senderDisplay}, ye stand tall at **100% Captain Power!** You are the *Captain of the Day!* ⚓️`;
+} else if (value < 30) {
+message = `☠️ ${senderDisplay}, ye barely passed cabin boy trials at ${value}${space}!`;
+} else if (value < 70) {
+message = `⚓ ${senderDisplay}, ye be a fine deckhand with ${value}${space} Captain prowess. Keep climbin’ the ranks!`;
+} else {
+message = `🏴‍☠️ ${senderDisplay}, the seas call your name with ${value}${space}% Captain power today!`;
+}
 
-  if (value === 100 && !aspectsOfTheDay.captain[today]) {
-    aspectsOfTheDay.captain[today] = { user: sender, value };
-    message = `⚓ Ahoy, Captain ${senderDisplay}! 🏴‍☠️ Your command of the seas be flawless at 100%! 🍻 You are the *Captain of the Day!* 👑`;
-  } else {
-    message = `⚓ Captain ${senderDisplay}, your Leadership Level be ${value}${space}% today! ${getJoke(req, type, value)} 🦜 Steady as she goes!`;
-  }
-
-  // Track usage
-  statCounters[sender] = statCounters[sender] || {};
-  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-  commandCounters[type] = (commandCounters[type] || 0) + 1;
-  return res.send(message);
+statCounters[sender] = statCounters[sender] || {};
+statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+commandCounters[type] = (commandCounters[type] || 0) + 1;
+return res.send(message);
 }
 
 if (type === "captainofday") {
-  const winner = aspectsOfTheDay.captain[today];
-  return res.send(
-    winner
-      ? `🏴‍☠️ The Captain of the Day be ${formatDisplayName(winner.user)}! ⚓ May calm seas and loyal crew follow yer command! 🌊`
-      : "☠️ There be no Captain of the Day yet! Hoist yer sails and take the helm, ye bold soul! 🦜"
-  );
+const winner = aspectsOfTheDay.captain[today];
+return res.send(
+winner
+? `🏴‍☠️ The *Captain of the Day* be ${formatDisplayName(winner.user)}! Raise the black flag and salute! ⚓️`
+: "There be no Captain of the Day yet! Who will seize the helm? 🏴‍☠️"
+);
 }
 
 // ===========================================
@@ -1585,7 +1724,6 @@ message = `🏴‍☠️ Ahoy ${senderDisplay}! ☠️ Your Pirate Level be at a
 message = `🏴‍☠️ ${senderDisplay}, your Pirate Level be ${value}${space}% today! 🦜${getJoke(req, type, value)} Arrr!`;
 }
 
-// Track usage
 statCounters[sender] = statCounters[sender] || {};
 statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
 commandCounters[type] = (commandCounters[type] || 0) + 1;
@@ -1606,25 +1744,28 @@ winner
 // ===========================================
 
 if (type === "pp") {
-const cfg = stats.pp;
-value = generateValue(seed, type, cfg.max, cfg.min, sender);
-const space = spaceIf(cfg.unitSpace);
+  const cfg = stats.pp;
+  value = generateValue(seed, type, cfg.max, cfg.min, sender);
+  const space = spaceIf(cfg.unitSpace);
 
-let level = "low";
-if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
-if (value > cfg.levels[1]) level = "high";
+  let level = "low";
+  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
+  if (value > cfg.levels[1]) level = "high";
 
-if (value === 15 && !aspectsOfTheDay.pp[today]) {
-aspectsOfTheDay.pp[today] = { user: sender, value };
-message = `${senderDisplay}, your PP is exactly 15 inches today! 🎉 You are the PP of the Day!`;
-} else {
-message = `${senderDisplay}, your PP is ${value}${space}inches today! ${getJoke(req, type, value, cfg)}`;
-}
+  const jokeResult = getJoke(req, type, value, cfg);
 
-statCounters[sender] = statCounters[sender] || {};
-statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-commandCounters[type] = (commandCounters[type] || 0) + 1;
-return res.send(message);
+  if (value === 15 && !aspectsOfTheDay.pp[today]) {
+    aspectsOfTheDay.pp[today] = { user: sender, value };
+    message = `${senderDisplay}, your PP is exactly 15 inches today! 🎉 You are the PP of the Day!`;
+  } else {
+    message = `${senderDisplay}, your PP is ${value}${space}inches today! ${jokeResult}`;
+  }
+
+  statCounters[sender] = statCounters[sender] || {};
+  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+  commandCounters[type] = (commandCounters[type] || 0) + 1;
+
+  return res.send(message);
 }
 
 // ===========================================
@@ -1632,42 +1773,52 @@ return res.send(message);
 // ===========================================
 
 if (type === "bb") {
-const cfg = stats.bb;
+  const cfg = stats.bb;
+  const band = cfg.bands[
+    generateValue(seed, type + "_band", cfg.bands.length - 1, 0, sender)
+  ];
+  const diff = generateValue(seed, type + "_diff", 10, 1, sender);
 
-const bandIndex = generateValue(seed, type + "_band", cfg.bands.length - 1, 0, sender);
-const cupIndex = generateValue(seed, type + "_cup", cfg.cups.length - 1, 0, sender);
-const band = cfg.bands[bandIndex];
-const cup = cfg.cups[cupIndex];
-const size = `${band}${cup}`;
+  const cupMap = {
+    0: "AA",
+    1: "A",
+    2: "B",
+    3: "C",
+    4: "D",
+    5: "DD",
+    6: "E",
+    7: "F",
+    8: "FF",
+    9: "G",
+    10: "GG",
+  };
+  const cup = cupMap[diff] || "AA";
 
-const cupWeights = { A: 1, B: 2, C: 3, D: 4, DD: 5, E: 6, F: 7 };
-const numericSize = band + (cupWeights[cup] || 0); 
+  const size = `${band}${cup}`;
+  let level;
+  if (diff <= 2) level = "low";
+  else if (diff <= 5) level = "medium";
+  else level = "high";
 
-const jokeCfg = { 
-min: cfg.bands[0] + (cupWeights[cfg.cups[0]] || 0),
-max: cfg.bands[cfg.bands.length - 1] + (cupWeights[cfg.cups[cfg.cups.length - 1]] || 0),
-levels: [36, 45]
-};
+  const J = typeof jokes !== "undefined" ? jokes : {};
+  const joke =
+    J.bb && J.bb[level] ? pickRandom(J.bb[level]) : "";
+  const biggestBand = cfg.bands[cfg.bands.length - 1];
+  const biggestCup  = "GG";
+  const biggestSize = `${biggestBand}${biggestCup}`;
 
-let level;
-if (numericSize <= jokeCfg.levels[0]) level = "low"; 
-else if (numericSize <= jokeCfg.levels[1]) level = "medium"; 
-else level = "high";
+  if (size === biggestSize && !aspectsOfTheDay.bb[today]) {
+    aspectsOfTheDay.bb[today] = { user: sender, size };
+    message = `${senderDisplay}, your size is ${size} today! 🎀 You are the Boob of the Day!`;
+  } else {
+    message = `${senderDisplay}, your boob size is ${size} today! ${joke}`;
+  }
 
-const biggestSize = `${cfg.bands[cfg.bands.length - 1]}${cfg.cups[cfg.cups.length - 1]}`;
+  statCounters[sender] = statCounters[sender] || {};
+  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
+  commandCounters[type] = (commandCounters[type] || 0) + 1;
 
-if (size === biggestSize && !aspectsOfTheDay.bb[today]) {
-aspectsOfTheDay.bb[today] = { user: sender, size };
-message = `${senderDisplay}, your size is ${size} today! 🎀 You are the Boob of the Day!`;
-} else {
-const joke = jokes[type][level] ? pickRandom(jokes[type][level]) : "No joke found for your size!";
-message = `${senderDisplay}, your boob size is ${size} today! ${joke}`;
-}
-
-statCounters[sender] = statCounters[sender] || {};
-statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-commandCounters[type] = (commandCounters[type] || 0) + 1;
-return res.send(message);
+  return res.send(message);
 }
 
 // ===========================================
@@ -1706,76 +1857,6 @@ if (type === "dadofday") {
 }
 
 // ===========================================
-// 🧔 CAT MOM & CAT MOM OF THE DAY
-// ===========================================
-
-if (type === "catmom") {
-  const cfg = stats.catmom;
-  value = generateValue(seed, type, cfg.max, cfg.min, sender);
-  const space = spaceIf(cfg.unitSpace);
-
-  let level = "low";
-  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
-  if (value > cfg.levels[1]) level = "high";
-
-  if (value === 100 && !aspectsOfTheDay.catmom[today]) {
-    aspectsOfTheDay.catmom[today] = { user: sender, value };
-    message = `${senderDisplay}, your Cat Mom Level is 100%! 🎉 You are the Cat Mom of the Day!`;
-  } else {
-    message = `${senderDisplay}, your Cat Mom Level is ${value}${space}% today! ${getJoke(req, type, value, cfg)}`;
-  }
-
-  statCounters[sender] = statCounters[sender] || {};
-  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-  commandCounters[type] = (commandCounters[type] || 0) + 1;
-  return res.send(message);
-}
-
-if (type === "catmomofday") {
-  const winner = aspectsOfTheDay.catmom[today];
-  return res.send(
-    winner
-      ? `🦸‍♂️ The Cat Mom of the Day is ${formatDisplayName(winner.user)}!`
-      : "There is no Cat Mom of the Day yet!"
-  );
-}
-
-// ===========================================
-// 🧔 STINKER & STINKER OF THE DAY
-// ===========================================
-
-if (type === "stinker") {
-  const cfg = stats.stinker;
-  value = generateValue(seed, type, cfg.max, cfg.min, sender);
-  const space = spaceIf(cfg.unitSpace);
-
-  let level = "low";
-  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
-  if (value > cfg.levels[1]) level = "high";
-
-  if (value === 100 && !aspectsOfTheDay.stinker[today]) {
-    aspectsOfTheDay.stinker[today] = { user: sender, value };
-    message = `${senderDisplay}, your Fart Level is 100%! 🎉 You are the Stinker of the Day!`;
-  } else {
-    message = `${senderDisplay}, your Fart Level is ${value}${space}% today! ${getJoke(req, type, value, cfg)}`;
-  }
-
-  statCounters[sender] = statCounters[sender] || {};
-  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-  commandCounters[type] = (commandCounters[type] || 0) + 1;
-  return res.send(message);
-}
-
-if (type === "stinkerofday") {
-  const winner = aspectsOfTheDay.stinker[today];
-  return res.send(
-    winner
-      ? `🦸‍♂️ The Stinker of the Day is ${formatDisplayName(winner.user)}!`
-      : "There is no Stinker of the Day yet!"
-  );
-}
-
-// ===========================================
 // 👑 PRINCESS & PRINCESS OF THE DAY
 // ===========================================
 
@@ -1802,6 +1883,7 @@ if (type === "princess") {
 
   return res.send(message);
 }
+
 if (type === "princessofday") {
   const winner = aspectsOfTheDay.princess[today];
   return res.send(
@@ -2348,62 +2430,6 @@ if (piracy[type]) {
   statCounters[sender] = statCounters[sender] || {};
   statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
   commandCounters[type] = (commandCounters[type] || 0) + 1;
-  return res.send(message);
-}
-
-// ===========================================
-// ✋ CUSTOM - Small blocks for custom message outcomes that are outside the general stat blocks
-// ===========================================
-
-if (custombutt[type]) {
-  const cfg = custombutt[type];
-  value = generateValue(seed, type, cfg.max, cfg.min, sender);
-  const space = spaceIf(cfg.unitSpace);
-
-  let level = "low";
-  if (value >= cfg.levels[0] && value <= cfg.levels[1]) level = "medium";
-  if (value > cfg.levels[1]) level = "high";
-
-  message = `${senderDisplay}, your ${cfg.label} is ${value}${space}${cfg.unit} fruity today! ${getJoke(req, type, value, cfg)}`;
-
-  statCounters[sender] = statCounters[sender] || {};
-  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-  commandCounters[type] = (commandCounters[type] || 0) + 1;
-  return res.send(message);
-}
-
-// ===========================================
-// 🤝 INTERACTIONS
-// ===========================================
-
-if (interactions.includes(type)) {
-  const actionWord = type
-    .replace("throwshoe", "threw a shoe at")
-    .replace("fliptable", "flipped a table")
-    .replace("highfive", "high-fived")
-    .replace("love", "sent love to")
-    .replace("bonk", "bonked")
-    .replace("boop", "booped")
-    .replace("hug", "hugged")
-    .replace("kiss", "kissed")
-    .replace("pat", "patted")
-    .replace("slap", "slapped")
-    .replace("spank", "spanked");
-
-  const value = generateValue(seed, type, 100, 1, sender);
-  const tempCfg = { min: 1, max: 100, levels: [30, 70] };
-  const joke = getJoke(req, type, value, tempCfg);
-
-  let message;
-  if (!userRaw || sender === cleanUsername(userRaw)) {
-    message = `${senderDisplay} tried to ${type} the air with ${value}% power!${joke}`;
-  } else {
-    message = `${senderDisplay} ${actionWord} ${targetDisplay} with ${value}% power!${joke}`;
-  }
-  statCounters[sender] = statCounters[sender] || {};
-  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-  commandCounters[type] = (commandCounters[type] || 0) + 1;
-
   return res.send(message);
 }
 
