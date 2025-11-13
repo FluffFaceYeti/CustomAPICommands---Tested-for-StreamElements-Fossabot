@@ -261,26 +261,20 @@ The bot generates a random value within the specified range (min to max) for eac
 
 How to add:
 
-To add a new stat, add it to the stats block with its range (min, max) and levels. For example, adding a "fart" stat:
+To add a new stat, add it to the stats block with its range (min, max) and levels. For example, adding a "catmom" stat:
+
 ```yaml
 const stats = {
-beard: { min: 1, max: 30, levels: [5, 15], unit: "cm", label: "beard", unitSpace: false },
-hair: { min: 10, max: 100, levels: [20, 60], unit: "cm", label: "hair", unitSpace: false },
-pp: { min: 4, max: 15, levels: [6, 10], unit: "inches", label: "pp", unitSpace: false },
-bb: {
-label: "boob size",
-type: "bra", // custom type flag for special generation
-bands: [30, 32, 34, 36, 38, 40, 42],
-cups: ["A", "B", "C", "D", "DD", "E", "F"],
-unitSpace: false
-},
-fart: { min: 1, max: 30, levels: [5, 15], unit: "cm", label: "beard", unitSpace: false },
-};                                 
+beard: { min: 1, max: 30, levels: [10, 25], unit: "cm", label: "beard", unitSpace: false },
+hair: { min: 10, max: 100, levels: [30, 70], unit: "cm", label: "hair", unitSpace: false },
+pp: { min: 3, max: 15, levels: [5, 7], unit: "inches", label: "pp", unitSpace: false },
+bb: { label: "boob size", type: "bra", bands: [28, 30, 32, 34, 36, 38, 40, 42, 44], cups: ["AA", "A", "B", "C", "D", "DD", "E", "F", "FF", "G", "GG"], unitSpace: false, },
+catmom: { min: 0, max: 100, levels: [30, 70], label: "Cat Mom level", unit: "%", unitSpace: false },
 ```
 or 
 
 ```yaml
-wetfart: { min: 1, max: 30, levels: [5, 15], unit: "cm", label: "Bunny Size", unitSpace: false },
+nerd: { min: 0, max: 100, levels: [30, 70], label: "nerd level", unit: "%", unitSpace: false },
 ```
 
 This will track the user’s "fart" and assign them a value between 1 and 100.
@@ -410,6 +404,97 @@ const aspectsOfTheDay = { daddy: {}, pp: {}, bb: {}, princess: {}, goodgirl: {},
 This way, the bot will only store selected values to ensure it is not saving every single command. 
 
 ----------------------------------------------------
+ 🧮 GENERIC WORD COUNTER
+----------------------------------------------------
+
+In our latest edition of this code we have added a word counyter. 
+
+simply find this block 
+
+```yaml
+// ===========================================
+// 🗣️ WORD COUNTERS - CONFIGURATION
+// ===========================================
+
+const wordCounters = {
+  waffles: { label: "waffles" },
+};
+```
+
+and add words to suit your needs
+
+such as 
+
+```yaml
+  cookies: { label: "cookies" },
+  coffee:  { label: "coffee" },
+  bananas: { label: "bananas" },
+  hugs:    { label: "hugs" },
+  ```
+  Now add a command series for them like this. 
+
+```yaml
+  !addcookies - ${customapi.https://yourusername.onrender.com?sender=${sender}&type=addcookies}
+  !cookies - ${customapi.https://yourusername.onrender.com?sender=${sender}&type=cookies}
+  !removecookies - ${customapi.https://yourusername.onrender.com?sender=${sender}&type=removecookies}
+  ```
+----------------------------------------------------
+🌟 DATE COUNTDOWN
+----------------------------------------------------
+
+We left this block in our public branch instead of making it generic as a few people haved asked for it
+
+```yaml
+// ===========================================
+// 🏴‍☠️ SOTFEST COUNTDOWN 🏴‍☠️
+// ===========================================
+
+if (type === "sotfest") {
+const now = new Date();
+const currentYear = now.getFullYear();
+
+let eventDate = new Date(`${currentYear}-07-10T00:00:00`);
+
+if (now > eventDate) {
+eventDate = new Date(`${currentYear + 1}-07-10T00:00:00`);
+}
+
+const diffMs = eventDate - now;
+const diffDays = Math.floor(diffMs / (1000 * 60 * 60 * 24));
+const diffHours = Math.floor((diffMs / (1000 * 60 * 60)) % 24);
+const diffMinutes = Math.floor((diffMs / (1000 * 60)) % 60);
+
+const message =
+`🏴‍☠️ Ahoy, ${senderDisplay}! The grand **SOTFEST** be drawin’ near!\n` +
+`⏳ There be **${diffDays} days**, **${diffHours} hours**, and **${diffMinutes} minutes** ` +
+`’til we set sail on **July 10th**, ye salty sea-dog! 🍻⚓`;
+
+return res.send(message);
+}
+```
+What does it do? 
+
+It tells your chat exactly how many 
+Days, Hours and Minutes it is until a specific date wich in this case is July 10th! 
+
+You can change this or add as many as you wish, Simply copy and paste the block below and change the dates and the wording! 
+
+Note:
+```yaml
+const message =
+`🏴‍☠️ Ahoy, ${senderDisplay}! The grand **SOTFEST** be drawin’ near!\n` +
+`⏳ There be **${diffDays} days**, **${diffHours} hours**, and **${diffMinutes} minutes** ` +
+`’til we set sail on **July 10th**, ye salty sea-dog! 🍻⚓`;
+```
+```yaml
+${senderDisplay} - User who did the command 
+${diffDays} - Days 
+${diffHours} - Hours 
+${diffMinutes} - Minutes 
+```
+Are the key factors here. Don't break them! 
+
+----------------------------------------------------
 YOU CAN NOW CUSTOMIZE THE BOT AND MAKE IT MORE ENGAGING FOR YOUR CHAT!
 ----------------------------------------------------
 
@@ -418,11 +503,16 @@ LINK EXAMPLES
 ----------------------------------------------------
 
 ----------------------------------------------------
-ADDING JOKES 
+😂 Jokes
 ----------------------------------------------------
 
-to add jokes to any link (Make sure that the command has jokes in the Jokes Library)
-Change the link as follows
+Jokes are enabled by default, If you wish to remove them simply add 
+
+```yaml
+&jokes=false
+```
+At the end of your link.
+example below:
 
 ```yaml
 Beard:
@@ -432,200 +522,47 @@ to
 
 ```yaml
 Beard:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=beard&jokes=true}
+${customapi.https://yourusername.onrender.com?sender=${sender}&type=beard&jokes=false}
+```
+----------------------------------------------------
+CONSENT
+----------------------------------------------------
+
+We have implimented an optional consent system for all interactions. 
+Simply alter your links as follows. 
+
+```yaml
+&consent=true
+```
+Within your link
+example below:
+
+```yaml
+Beard:
+${customapi.https://yourusername.onrender.com?sender=${sender}&type=beard&jokes=false}
+```
+to
+
+```yaml
+Beard:
+${customapi.https://yourusername.onrender.com?sender=${sender}&type=beard&jokes=false&consent=true}
 ```
 
-📊 STATS
+Now when someone tries to !spank someone it will ask the target user to consent using 
+!accept 
 
-Beard:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=beard}
+Or 
 
-Hair:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=hair}
+!deny 
 
-PP (Penis Size):
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=pp}
+You will need to add these as commands using StreamElements, Fossabot or a bot of your choice. We have only tested it with these two and Nighbot for now. 
 
-Boob Size:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=bb}
-
-❤️ LOVE
-
-Mila Loves You:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=mila}
-
-Ivy Loves You:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=ivy}
-
-Theo Loves You:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=theo}
-
-💔 HATE
-
-Mila Hate:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=milahate}
-
-Ivy Hate:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=ivyhate}
-
-Theo Hate:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=theohate}
-
-🧠 PERSONALITY
-
-Butt:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=butt}
-
-Daddy:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=daddy}
-
-Fox:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=fox}
-
-Nerd:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=nerd}
-
-Pirate:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=pirate}
-
-Sword Lunge:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=swordlunge}
-
-Flame:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=flame}
-
-Tinkabell:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=tinkabell}
-
-Princess:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=princess}
-
-Good Girl:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=goodgirl}
-
-🏋️ GYM STATS
-
-Lift:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=lift}
-
-Run:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=run}
-
-Sprint:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=sprint}
-
-Deadlift:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=deadlift}
-
-Curl:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=curl}
-
-Row:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=row}
-
-Stretch:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=stretch}
-
-🏦 HOLD
-
-Gold Pouch:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=gold}
-
-💪 ACTIONS
-
-Squeeze:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=squeeze}
-
-Push:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=push}
-
-Jump:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=jump}
-
-Press:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=press}
-
-Kick:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=kick}
-
-😃 EMOTIONS & FEELINGS
-
-Happiness:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=happiness}
-
-Anger:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=anger}
-
-Calmness:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=calmness}
-
-Joy:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=joy}
-
-Excitement:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=excitement}
-
-Energy:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=energy}
-
-Sleep:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=sleep}
-
-🎯 SKILLS
-
-Precision:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=precision}
-
-Accuracy:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=accuracy}
-
-Focus:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=focus}
-
-Flirting:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=flirting}
-
-Luck:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=luck}
-
-DJ Skill:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=dj}
-
-🤝 INTERACTIONS
-
-Bonk:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=bonk}
-
-Boop:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=boop}
-
-Flip Table:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=fliptable}
-
-High Five:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=highfive}
-
-Hug:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=hug}
-
-Kiss:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=kiss}
-
-Love:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=love}
-
-Pat:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=pat}
-
-Slap:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=slap}
-
-Spank:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=spank}
-
-Throw Shoe:
-${customapi.https://yourusername.onrender.com?sender=${sender}&type=throwshoe}
-
+```yaml
+!accept - ${customapi.https://yourusername.onrender.com?sender=${sender}&type=accept}
+```
+```yaml
+!deny - ${customapi.https://yourusername.onrender.com?sender=${sender}&type=deny}
+```
 ----------------------------------------------------
 TARGETED LINKS
 ----------------------------------------------------
@@ -637,9 +574,231 @@ Rock Paper Scissors
 ----------------------------------------------------
 
 Note: Jokes for these blocks are pre-implemented, so the link does not need to contain &jokes=true
-
+```yaml
 rps: 
 ${customapi.https://yourusername.onrender.com?sender=${sender}&user=${user}&type=rps}
-
+```
+```yaml
 PP Duel:
-${customapi.https://yourusername.onrender.com?sender=${sender}&user=${user}&type=poduel}
+${customapi.https://yourusername.onrender.com?sender=${sender}&user=${user}&type=ppduel}
+```
+----------------------------------------------------
+TIME ZONE EXAMPLES
+----------------------------------------------------
+```yaml
+Use the time zone that works best for you
+
+America/New_York
+America/Chicago
+America/Denver
+America/Los_Angeles
+America/Anchorage
+Pacific/Honolulu
+America/Phoenix
+America/St_Johns
+America/Halifax
+America/Toronto
+America/Winnipeg
+America/Edmonton
+America/Vancouver
+America/Detroit
+America/Indiana/Indianapolis
+America/Kentucky/Louisville
+America/Regina
+America/Moncton
+America/Whitehorse
+America/Yellowknife
+America/Iqaluit
+```
+
+----------------------------------------------------
+BASE TYPES
+----------------------------------------------------
+
+How to use? 
+
+For each command your link will look like this
+```yaml
+${customapi.https://yourusername.onrender.com?sender=${sender}&type=beard}
+```
+The key part being the end, That &type=beard tells the code and your bot wich part to look at and wich data to use in order to run the command. 
+below is a list of the Types that come with the file as a default, you can add as many as you like by following the guides provided. 
+For each command your link will look like this
+
+# 📊 Stats
+&type=beard
+&type=hair
+&type=pp
+&type=bb
+&type=daddy
+&type=catmom
+&type=stinker
+&type=fox
+&type=nerd
+&type=tinkabell
+&type=princess
+&type=goodgirl
+
+# ❤️ Love
+&type=flame
+
+# 💔 Hate
+&type=flamehate
+
+# 🧠 Personality
+&type=clowning
+&type=heroComplex
+&type=darkHumor
+&type=whimsicality
+&type=ambition
+&type=mischief
+&type=bookishness
+&type=zen
+&type=selfConfidence
+&type=thoughtfulness
+&type=creativity
+&type=spontaneity
+&type=cookingSkills
+&type=competitiveSpirit
+&type=eccentricity
+&type=sassiness
+&type=imagination
+&type=nurturingInstinct
+&type=patience
+&type=charisma
+&type=luck
+
+# 🏋️ Gym
+&type=lift
+&type=run
+&type=sprint
+&type=deadlift
+&type=curl
+&type=row
+&type=stretch
+
+# 🏦 Hold
+&type=gold
+
+# 🏦 Carry
+&type=weight
+&type=items
+
+# 💪 Actions
+&type=squeeze
+&type=push
+&type=jump
+&type=press
+&type=kick
+&type=dodge
+&type=roll
+&type=slide
+&type=climb
+&type=punch
+&type=block
+&type=tackle
+&type=throw
+&type=kickflip
+&type=spin
+&type=uppercut
+&type=grapple
+
+# 😃 Emotions & Feelings
+&type=happiness
+&type=anger
+&type=calmness
+&type=joy
+&type=excitement
+&type=energy
+&type=sleep
+&type=sadness
+&type=anxiety
+&type=love
+&type=nostalgia
+&type=gratitude
+&type=guilt
+&type=pride
+&type=frustration
+&type=hope
+&type=love_hate_balance
+
+# 🎯 Skills
+&type=precision
+&type=accuracy
+&type=focus
+&type=flirting
+&type=dj
+&type=intelligence
+&type=stealth
+&type=cooking
+&type=leadership
+&type=negotiation
+&type=martial_arts
+&type=strength
+&type=adaptability
+
+# 🏴‍☠️ Pirate Skills
+&type=pirate
+&type=captain
+&type=treasure_hunting
+&type=sea_navigation
+&type=ship_maintenance
+&type=swordsmanship
+&type=swashbuckling
+&type=plunder
+&type=cannon_use
+&type=crew_morale
+&type=intimidation
+&type=parley
+
+# 🐾 Animal Vibes
+&type=animal
+
+# 🍹 Drink Vibes
+&type=drink
+
+# 🎨 Colors
+&type=colors
+
+# 🧘 Aura Vibes
+&type=auravibes
+
+# 🏴‍☠️ Pirate Vibes
+&type=piratevibes
+
+# 🧙 Wizard Vibes
+&type=wizardvibes
+
+# 👗 Outfits / Styles
+&type=outfits
+
+# ⚡ Elements
+&type=elements
+
+# 🌟 Powers / Abilities
+&type=powers
+
+# 🏴‍☠️ Pirate Accessories
+&type=pirateoutfits
+
+# 🧙 Wizard Accessories
+&type=wizarditems
+
+# 🌿 Elemental Accessories
+&type=elementalitems
+
+# ✨ Aura Accessories
+&type=auraitems
+
+# 🤝 Interactions
+&type=bonk
+&type=boop
+&type=fliptable
+&type=highfive
+&type=hug
+&type=kiss
+&type=love
+&type=pat
+&type=slap
+&type=spank
+&type=throwshoe
