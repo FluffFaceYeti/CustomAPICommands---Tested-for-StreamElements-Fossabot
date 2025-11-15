@@ -1768,6 +1768,15 @@ if (type === "pp") {
   return res.send(message);
 }
 
+  if (type === "ppofday") {
+  const winner = aspectsOfTheDay.pp[today];
+  return res.send(
+  winner
+  ? `🍆 The PP of the Day is ${formatDisplayName(winner.user)}!`
+  : "There is no PP of the Day yet!"
+  );
+  }
+
 // ===========================================
 // 👙 BB (Boob Size) & BB OF THE DAY
 // ===========================================
@@ -2458,3 +2467,4 @@ res.send("");
 
 const port = process.env.PORT || 3000;
 app.listen(port, () => console.log(`Daily Stat API running on port ${port}`));
+
