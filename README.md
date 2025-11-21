@@ -709,7 +709,8 @@ For each command your link will look like this
 &type=spin
 &type=uppercut
 &type=grapple
-
+```
+```yaml
 # 😃 Emotions & Feelings
 &type=happiness
 &type=anger
