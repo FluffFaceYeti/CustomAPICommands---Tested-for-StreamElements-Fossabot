@@ -624,7 +624,7 @@ ${customapi.https://yourusername.onrender.com?sender=${sender}&type=beard}
 The key part being the end, That &type=beard tells the code and your bot wich part to look at and wich data to use in order to run the command. 
 below is a list of the Types that come with the file as a default, you can add as many as you like by following the guides provided. 
 For each command your link will look like this
-
+```yaml
 # 📊 Stats
 &type=beard
 &type=hair
@@ -638,13 +638,16 @@ For each command your link will look like this
 &type=tinkabell
 &type=princess
 &type=goodgirl
-
+```
+```yaml
 # ❤️ Love
 &type=flame
-
+```
+```yaml
 # 💔 Hate
 &type=flamehate
-
+```
+```yaml
 # 🧠 Personality
 &type=clowning
 &type=heroComplex
@@ -667,7 +670,8 @@ For each command your link will look like this
 &type=patience
 &type=charisma
 &type=luck
-
+```
+```yaml
 # 🏋️ Gym
 &type=lift
 &type=run
@@ -676,14 +680,17 @@ For each command your link will look like this
 &type=curl
 &type=row
 &type=stretch
-
+```
+```yaml
 # 🏦 Hold
 &type=gold
-
+```
+```yaml
 # 🏦 Carry
 &type=weight
 &type=items
-
+```
+```yaml
 # 💪 Actions
 &type=squeeze
 &type=push
@@ -721,7 +728,8 @@ For each command your link will look like this
 &type=frustration
 &type=hope
 &type=love_hate_balance
-
+```
+```yaml
 # 🎯 Skills
 &type=precision
 &type=accuracy
@@ -736,7 +744,8 @@ For each command your link will look like this
 &type=martial_arts
 &type=strength
 &type=adaptability
-
+```
+```yaml
 # 🏴‍☠️ Pirate Skills
 &type=pirate
 &type=captain
@@ -750,46 +759,60 @@ For each command your link will look like this
 &type=crew_morale
 &type=intimidation
 &type=parley
-
+```
+```yaml
 # 🐾 Animal Vibes
 &type=animal
-
+```
+```yaml
 # 🍹 Drink Vibes
 &type=drink
-
+```
+```yaml
 # 🎨 Colors
 &type=colors
-
+```
+```yaml
 # 🧘 Aura Vibes
 &type=auravibes
-
+```
+```yaml
 # 🏴‍☠️ Pirate Vibes
 &type=piratevibes
-
+```
+```yaml
 # 🧙 Wizard Vibes
 &type=wizardvibes
-
+```
+```yaml
 # 👗 Outfits / Styles
 &type=outfits
-
+```
+```yaml
 # ⚡ Elements
 &type=elements
-
+```
+```yaml
 # 🌟 Powers / Abilities
 &type=powers
-
+```
+```yaml
 # 🏴‍☠️ Pirate Accessories
 &type=pirateoutfits
-
+```
+```yaml
 # 🧙 Wizard Accessories
 &type=wizarditems
-
+```
+```yaml
 # 🌿 Elemental Accessories
 &type=elementalitems
-
+```
+```yaml
 # ✨ Aura Accessories
 &type=auraitems
-
+```
+```yaml
 # 🤝 Interactions
 &type=bonk
 &type=boop
@@ -802,3 +825,4 @@ For each command your link will look like this
 &type=slap
 &type=spank
 &type=throwshoe
+```
