@@ -2054,33 +2054,6 @@ const giveawayEntries = [];
 const giveawayWinners = [];
 
 // ===========================================
-// 🏆 WORD OF THE DAY SYSTEM
-// ===========================================
-
-const dailyWordPool = [
-  "word1",
-  "word2"
-];
-
-const wordOfTheDay = {
-  word: null,
-  winner: null,
-  date: null,
-};
-
-function resetWordOfTheDay(today) {
-  if (wordOfTheDay.date !== today) {
-    wordOfTheDay.word = dailyWordPool[
-      Math.floor(Math.random() * dailyWordPool.length)
-    ];
-    wordOfTheDay.winner = null;
-    wordOfTheDay.date = today;
-
-    console.log(`🔑 Word of the Day: ${wordOfTheDay.word}`);
-  }
-}
-
-// ===========================================
 // 🚫 ASPEECT OF THE DAY TRIGGER VALUES - NONE LIST ITEMS
 // ===========================================
 
@@ -2248,7 +2221,6 @@ const senderDisplay = formatDisplayName(senderRaw);
 const targetDisplay = formatDisplayName(userRaw);
 const target = cleanUsername(userRaw) || sender;
 const today = new Date().toLocaleDateString("en-GB");
-resetWordOfTheDay(today);
 
 if (specialUsers[sender] && specialUsers[sender][type])
 return res.send(specialUsers[sender][type]);
@@ -2731,41 +2703,6 @@ return res.send(
   } today!.`
 );
 }
-}
-
-// ===========================================
-// 🔍 WORD OF THE DAY DETECTION
-// ===========================================
-
-const chatText = `${req.query.message || ""} ${type}`.toLowerCase();
-
-if (
-  type !== "wordofday" &&
-  wordOfTheDay.winner === null &&
-  wordOfTheDay.word &&
-  new RegExp(`\\b${wordOfTheDay.word}\\b`, "i").test(chatText)
-) {
-  wordOfTheDay.winner = sender;
-
-  return res.send(
-    `🎉 ${senderDisplay} has discovered the **Word of the Day**!\n` +
-    `🔑 The secret word was **"${wordOfTheDay.word}"** 🏆`
-  );
-}
-
-// ===========================================
-// 🏆 WORD OF THE DAY QUERY
-// ===========================================
-
-if (type === "wordofday") {
-  if (!wordOfTheDay.winner) {
-    return res.send("🔍 The Word of the Day has not been discovered yet!");
-  }
-
-  return res.send(
-    `🏆 Word of the Day Winner: ${formatDisplayName(wordOfTheDay.winner)}!\n` +
-    `🔑 The word was **"${wordOfTheDay.word}"**`
-  );
 }
 
 // ===========================================
