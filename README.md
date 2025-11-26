@@ -525,8 +525,10 @@ animal: (senderDisplay, chosen, _space, cfg) =>
 `🐾 ${senderDisplay}, your ${cfg.label} today is ${chosen}! 🏆 You are the *Animal of the Day!* 🎉`,
 };
 ```
-The winning messages for Aspects of The day, once you have added your item and set the condition simply add a winning message into one of these blocks like so. 
 
+The winning messages for Aspects of The day, once you have added your item and set the condition simply add a winning message into one of these blocks like so.
+
+```yaml
 shoesize: (senderDisplay, value, space, cfg) =>
 `${senderDisplay}, your shoe size Level is ${value}${space}${cfg.unit} today! 🐾 You are the shoe size of the Day! 🎉`,
 ```
