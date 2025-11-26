@@ -34,6 +34,7 @@ Steps:
 🎉 Bonus tip 
 - You can simply click "New Repository," then click on "Import a Repository" and use the following link https://github.com/FluffFaceYeti/CustomAPICommands---Tested-for-StreamElements-Fossabot
 - Simply give it a name and GitHub will pull all the files over for you!
+
 ----------------------------------------------------
 2. DEPLOY ON RENDER
 ----------------------------------------------------
@@ -123,24 +124,16 @@ While this file is free to use:
 - StreamElements will now ping your service every 10 minutes. Stopping the service from shutting down while you are live. 
 
 ----------------------------------------------------
-6. BOT CUSTOMIZATION GUIDE
+6. BOT CUSTOMIZATION GUIDE V2 - Wriiten by FluffFaceyeti
 ----------------------------------------------------
 
-This guide provides instructions on how to customize the bot to make it more interactive, fun, and personalized for users.
+This guide provides clear instructions on how to customize the bot to make it more interactive, fun, and personalized for your stream!
 
 ----------------------------------------------------
-🕹️ Mini-Games
+🕹️ Adding new Mini-Games
 ----------------------------------------------------
 
-Mini-games are small games that users can play with the bot, such as Rock Paper Scissors or Dice Roll. Each mini-game has its own set of rules.
-
-How it works:
-
-Each mini-game is assigned to a function (e.g., rockPaperScissors) and is triggered when the user interacts with the bot. For example, in Rock Paper Scissors, the bot randomly picks moves for the user and their opponent, then declares a winner.
-
-How to add:
-
-To add a new mini-game, simply list the game and its corresponding function in the miniGames block. please use other games for references For instance:
+Find the following block 
 
 ```yaml
 const miniGames = {
@@ -150,47 +143,62 @@ diceroll: diceRoll,
 coinflip: coinFlip,
 rpsls: rpsls,
 highorlow: highOrLow,
-newgame : newgame,
 };
 ```
-to add the game to your minigame list 
+
+add the name of your game inside it for example
 
 ```yaml
-// newgame
-function rockPaperScissors(sender, target) {
-const choices = ["bacon", "eggs", "pancakes", "sausage"];
-const senderMove = pickRandom(choices); // Bot decides the sender's move
-const targetMove = pickRandom(choices); // Bot decides the target's move
+const miniGames = {
+rps: rockPaperScissors,
+tugofwar: tugOfWar,
+diceroll: diceRoll,
+coinflip: coinFlip,
+rpsls: rpsls,
+highorlow: highOrLow,
+bse: baconsauceegg,
+};
+```
+Then simply copy one of the existing game blocks and tailor it to your needs for example. Lets take the Rock paper Scissors block and make it breakfast themed! 
 
-if (senderMove === targetMove) {
-return `${sender}, it's a tie with ${target}! Both chose ${senderMove}.`;
-}
-if (
-(senderMove === "bacon" && targetMove === "sausage") ||
-(senderMove === "pancakes" && targetMove === "bacon") ||
-(senderMove === "eggs" && targetMove === "pancakes")
-) {
-return `${sender} wins! ${senderMove} beats ${targetMove}.`;
-}
-return `${target} wins! ${targetMove} beats ${senderMove}.`;
+```yaml
+// ===========================================
+// 🎮 ROCK PAPER SCISSORS - BREAKFAST VERSION
+// ===========================================
+
+function baconsauceegg(sender, target) {
+  const pairSeed = dailyPairSeed("rps", sender, target);
+  const hash = crypto.createHash("md5").update(pairSeed).digest("hex");
+  const num = parseInt(hash.slice(0, 8), 16);
+
+  const choices = ["bacon", "sausage", "egg"];
+  const senderMove = choices[num % 3];
+  const targetMove = choices[(num >> 2) % 3];
+
+  if (senderMove === targetMove)
+    return `${sender}, it's a tie with ${target}! Both chose ${senderMove}. 😅`;
+
+  if (
+    (senderMove === "bacon" && targetMove === "egg") ||
+    (senderMove === "sausage" && targetMove === "bacon") ||
+    (senderMove === "egg" && targetMove === "sausage")
+  )
+    return `${sender} wins! ${senderMove} beats ${targetMove}. 😎`;
+
+  return `${target} wins! ${targetMove} beats ${senderMove}. 😂`;
 }
 ```
 
-You now have a breakfast-themed Rock Paper Scissors game.
+And now you have a breakfast themed mini game for your chatters to enjoy!
 
 ----------------------------------------------------
 🌟 Special Users
 ----------------------------------------------------
 
-Special users are individuals who have personalized messages or actions when they interact with the bot. These users might receive compliments, jokes, or special interactions.
-
-How it works:
-
-The bot checks if the user is a special user and then displays a personalized message tailored to them. For example, a user named yourusername might receive a message about their majestic beard.
-
-How to add:
+Special users are individuals who have personalized messages when they use specified commands.
 
 To add a new special user, simply add their name and custom messages under specialUsers:
+Each command will deliver a custom message like so.
 
 ```yaml
 const specialUsers = {
@@ -201,6 +209,44 @@ hair: "@newuser123, LUL You have no hair silly",
 ```
 
 This will create personalized responses for newuser123.
+
+you can add as many users as you like, simply extend the block like so. 
+
+```yaml
+const specialUsers = {
+newuser123: {
+beard: "@newuser123, your beard is majestic like a wizard!",
+hair: "@newuser123, LUL You have no hair silly",
+},
+newuser123: {
+beard: "@newuser123, your beard is majestic like a wizard!",
+hair: "@newuser123, LUL You have no hair silly",
+},
+```
+
+----------------------------------------------------
+🌟 Custom Interaction Messages
+----------------------------------------------------
+
+Special user interaction messages are individual personalized for actions!
+
+To add a new special user, simply add their name and custom messages under specialUsers:
+
+```yaml
+const specialInteractions = {
+  username1: {
+    username2: {
+      hug: {
+        value: 10000,
+        message:
+          "@{sender} absolutely cuddled @{target}'s face with a GOD-TIER {value}% hug! 🍑🔥",
+      },
+    },
+  },
+};
+```
+
+This will create personalized responses username2 letting them know that usernam1 cuddled them with 10000% force.
 
 ----------------------------------------------------
 😂 Jokes
@@ -216,30 +262,6 @@ How to add:
 
 To add a new joke, simply go to the jokes block and add the new category (e.g., low, medium, high) with the jokes.
 
-The way the code pulls in the joke from the Jokes Library is as follows.
-
-```yaml
-function getJoke(req, type, value) {
-const level = value <= 30 ? "low" : value <= 70 ? "medium" : "high";
-if (!isJokeEnabled(req, type)) return "";
-if (!jokes[type] || !jokes[type][level]) return "";
-return " " + pickRandom(jokes[type][level]);
-}
-``` 
-This line of code tells the script to run "function getJoke(req, type, value) {const level = value <= 30 ? "low" : value <= 70 ? "medium" : "high";"
-As seen below the script will run !sleep and if the persons replies are as followed the jokes will be selected from Low, Medium and High.
-
-```yaml
-sleep: { min: 0, max: 100, levels: [30, 70], label: "sleep needed", unit: "%", unitSpace: false },
-sleep: is the cost identity label
-min: 0, max: 100, are the minimum and maximum values
-levels: [30, 70] this is the key part for the jokes. Anything below 30% is a Low joke, Anything from 31-70% is a Medium Joke, Anything 71-100% is a High joke.
-label: "sleep needed" how the bot writes the value in chat "your SLEEP NEEDED is 16% today! You’re well-rested — alert and ready. 🦸"
-unit: "%" the measurement value. This can be anything you want! yes it can even be a custom value such as hair or doodles.
-unitSpace: false this simply means do you want a space after the unit so 16% would become 16 %. Some readings look better with spaces so I added this as an option
-```
-And then the joke will be called from this list. Feel free to make this your own. 
-
 ```yaml
 sleep: {
 low: ["You’re well-rested — alert and ready. 🦸", "You don’t need much sleep today. 😎"],
@@ -247,7 +269,7 @@ medium: ["You could use a nap later. 💤", "You’re doing fine, but bed is cal
 high: ["You desperately need sleep. 😴", "Someone get you a pillow immediately. 🛌"],
 ```
 
-Now, when newuser123 interacts, the bot will pick a joke based on the user's level.
+Now, when someone runs the !sleep command the bot will respond with a joke based on the value they got!
 
 ----------------------------------------------------
 📊 Stats
@@ -351,63 +373,246 @@ const actionWord = type
 This ensures the message becomes something like "User1 tickled User2 with 70% power!"
 
 ----------------------------------------------------
-🌟 Creating "Show of the Day"
+🌟 Creating "Of The Day" Aspects!
 ----------------------------------------------------
 
-"Show of the Day" is a special feature that highlights a user or value for the day. For example, a user could be selected as "Daddy of the Day" based on a fun stat or interaction.
+We have spent sometime working on our "Of The Day" aspects and have slimmed it down to make it easier for users to make additions to. 
 
-How it works:
-
-The bot randomly or based on performance selects a user for "Show of the Day" and displays a custom message. For instance, in the "Daddy of the Day" feature, the bot tracks the "daddy" stat and announces a winner when it hits 100%.
-
-How to add:
-
-To create a new "Show of the Day", define a new category like the "daddy" stat, and generate a response for the winner. Here’s an example of how to do it:
+here are the blocks that are used in Aspects Of The day. 
 
 ```yaml
-if (type === "showoftheday") {
-  const cfg = personality.showoftheday;
-  const value = generateValue(seed, type, cfg.max, cfg.min, sender);
-  const space = spaceIf(cfg.unitSpace);
+// ===========================================
+// 📅 DAILY STORAGE & COUNTERS
+// ===========================================
 
-  if (value === 100 && !aspectsOfTheDay.showoftheday[today]) {
-    aspectsOfTheDay.showoftheday[today] = { user: sender, value };
-    message = `${senderDisplay}, you're the Show of the Day with 100%! 🌟`;
-  } else {
-    message = `${senderDisplay}, your Show of the Day value is ${value}${space}% today!`;
-  }
+const aspectsOfTheDay = {
+daddy: {},
+pp: {},
+bb: {},
+princess: {},
+goodgirl: {},
+catmom: {},
+stinker: {},
+pirate: {},
+captain: {},
+animal: {},
+drink: {},
+};
 
-  statCounters[sender] = statCounters[sender] || {};
-  statCounters[sender][type] = (statCounters[sender][type] || 0) + 1;
-  commandCounters[type] = (commandCounters[type] || 0) + 1;
-  return res.send(message);
-}
-
-if (type === "showofthedaywinner") {
-  const winner = aspectsOfTheDay.showoftheday[today];
-  return res.send(winner ? `🌟 The Show of the Day is ${formatDisplayName(winner.user)}!` : "There is no Show of the Day yet!");
-}
+const wordsOfTheDay = {};
+const dailyConsents = {};
+const lock = {};
+const statCounters = {};
+const commandCounters = {};
+const giveawayEntries = [];    
+const giveawayWinners = [];
 ```
-This checks for the winner each day and announces them as the "Show of the Day".
-
-----------------------------------------------------
-Note: to add values into the "of the day" items, please find this line of code and change it to suit your needs.
-----------------------------------------------------
-```yaml
-const aspectsOfTheDay = { daddy: {}, pp: {}, bb: {}, princess: {}, goodgirl: {} }; // storage for "of the Day"
-```
-So to add something, it would become.
+to add a new value simply add your new value such aa "shoe" like so 
 
 ```yaml
-const aspectsOfTheDay = { daddy: {}, pp: {}, bb: {}, princess: {}, goodgirl: {}, something: {} }; // storage for "of the Day"
+const aspectsOfTheDay = {
+daddy: {},
+pp: {},
+bb: {},
+princess: {},
+goodgirl: {},
+catmom: {},
+stinker: {},
+pirate: {},
+captain: {},
+animal: {},
+drink: {},
+shoe: {},
+};
 ```
-This way, the bot will only store selected values to ensure it is not saving every single command. 
+```yaml
+// ===========================================
+// 🚫 ASPEECT OF THE DAY TRIGGER VALUES - NONE LIST ITEMS
+// ===========================================
+
+const aspectsOfTheDayTriggers = {
+pp: 15,
+daddy: 100,
+princess: 100,
+goodgirl: 100,
+catmom: 100,
+stinker: 100,
+pirate: 100,
+captain: 100,
+};
+
+// ===========================================
+// 🚫 ASPEECT OF THE DAY TRIGGER VALUES - LIST ITEMS
+// ===========================================
+
+const listAspectTriggers = {
+drink: {
+includes: "🍸 martini",
+},
+animal: {
+includes: "unicorn",
+},
+};
+```
+These are the triggers that are used to decide the winner of the day. Lets say your shoe size is "4-17" and you wanted size 6 to be the Aspect of The day, you would add it like so. 
+
+```yaml
+const aspectsOfTheDayTriggers = {
+pp: 15,
+daddy: 100,
+princess: 100,
+goodgirl: 100,
+catmom: 100,
+stinker: 100,
+pirate: 100,
+captain: 100,
+shoe: 6,
+};
+```
+The second part of that block is for listed items and none numeric items. If you have a list of brands and wanted for example "nike" to win you would add it like so. 
+
+```yaml
+const listAspectTriggers = {
+drink: {
+includes: "🍸 martini",
+},
+animal: {
+includes: "unicorn",
+},
+shoebrands: {
+includes: "nike",
+};
+```
+
+```yaml
+// ===========================================
+// 🚫 VALUE WINNER OF THE DAY MESSAGES - NONE LIST
+// ===========================================
+
+const aspectOfTheDayMessages = {
+pp: (senderDisplay, value, space, cfg) =>
+`${senderDisplay}, your PP is exactly ${value}${space}${cfg.unit} today! 🎉 You are the PP of the Day!`,
+
+daddy: (senderDisplay, value, space, cfg) =>
+`${senderDisplay}, your Daddy Level is ${value}${space}${cfg.unit} today! 🎉 You are the Daddy of the Day!`,
+
+princess: (senderDisplay, value, space, cfg) =>
+`${senderDisplay}, your Princess Level is ${value}${space}${cfg.unit} today! 👑 You are the Princess of the Day! 🎉`,
+
+goodgirl: (senderDisplay, value, space, cfg) =>
+`${senderDisplay}, your Good Girl Level is ${value}${space}${cfg.unit} today! 🐶 You are the Good Girl of the Day! 🎉`,
+
+catmom: (senderDisplay, value, space, cfg) =>
+`${senderDisplay}, your Cat Mom Level is ${value}${space}${cfg.unit} today! 🐾 You are the Cat Mom of the Day! 🎉`,
+
+stinker: (senderDisplay, value, space, cfg) =>
+`${senderDisplay}, your Fart Level is ${value}${space}${cfg.unit} today! 💨 You are the Stinker of the Day! 🎉`,
+
+pirate: (senderDisplay, value, space, cfg) =>
+`🏴‍☠️ Ahoy ${senderDisplay}! Your Pirate Level be ${value}${space}${cfg.unit} today! ☠️ You are the Pirate of the Day! 🏆`,
+
+captain: (senderDisplay, value, space, cfg) =>
+`🏴‍☠️ ${senderDisplay}, your Captain Power be ${value}${space}${cfg.unit} today! ⚓ You are the Captain of the Day! 🏆`,
+
+// ===========================================
+// 🚫 VALUE WINNER OF THE DAY MESSAGES - LIST
+// ===========================================
+
+drink: (senderDisplay, chosen, _space, cfg) =>
+`🍹 ${senderDisplay}, your ${cfg.label} today is ${chosen}! 🏆 You are the *Drink of the Day!* 🎉`,
+
+animal: (senderDisplay, chosen, _space, cfg) =>
+`🐾 ${senderDisplay}, your ${cfg.label} today is ${chosen}! 🏆 You are the *Animal of the Day!* 🎉`,
+};
+```
+The winning messages for Aspects of The day, once you have added your item and set the condition simply add a winning message into one of these blocks like so. 
+
+shoesize: (senderDisplay, value, space, cfg) =>
+`${senderDisplay}, your shoe size Level is ${value}${space}${cfg.unit} today! 🐾 You are the shoe size of the Day! 🎉`,
+```
+```yaml
+// ===========================================
+// 🚫 WHO IS WINNER OF THE DAY MESSAGES
+// ===========================================
+
+const aspectOfTheDayQueryMessages = {
+daddy: (winner) =>
+`🦸‍♂️ The Daddy of the Day is ${formatDisplayName(winner.user)}!`,
+
+pp: (winner) => `🍆 The PP of the Day is ${formatDisplayName(winner.user)}!`,
+
+princess: (winner) =>
+`👑 The Princess of the Day is ${formatDisplayName(winner.user)}!`,
+
+goodgirl: (winner) =>
+`🐶 The Good Girl of the Day is ${formatDisplayName(winner.user)}!`,
+
+catmom: (winner) =>
+`🐾 The Cat Mom of the Day is ${formatDisplayName(winner.user)}!`,
+
+stinker: (winner) =>
+`💨 The Stinker of the Day is ${formatDisplayName(winner.user)}!`,
+
+pirate: (winner) =>
+`🏴‍☠️☠️ The Pirate of the Day be ${formatDisplayName(
+winner.user
+)}! ⚓️ May the seas bow before ye! 🌊`,
+
+captain: (winner) =>
+`🏴‍☠️ The *Captain of the Day* be ${formatDisplayName(
+winner.user
+)}! Raise the black flag and salute! ⚓️`,
+
+animal: (winner) =>
+`🐾 The Animal of the Day is ${formatDisplayName(
+winner.user
+)} — a majestic ${winner.chosen}! 👑`,
+
+drink: (winner) =>
+`🍹 The Drink of the Day is ${formatDisplayName(winner.user)} — ${
+winner.chosen
+}! 🏆`,
+};
+
+const aspectOfTheDayNoWinnerMessages = {
+daddy: "There is no Daddy of the Day yet!",
+pp: "There is no PP of the Day yet!",
+princess: "There is no Princess of the Day yet!",
+goodgirl: "There is no Good Girl of the Day yet!",
+catmom: "There is no Cat Mom of the Day yet!",
+stinker: "There is no Stinker of the Day yet!",
+pirate:
+"☠️ There be no Pirate of the Day yet! Raise yer sails and earn yer title, ye scallywag! 🦜",
+captain: "There be no Captain of the Day yet! Who will seize the helm? 🏴‍☠️",
+animal: "🐾 There is no Animal of the Day yet! Be the first to roar! 🦁",
+drink: "🍹 There is no Drink of the Day yet! Be the first to sip! 🍸",
+};
+
+// ===========================================
+// 🚫 VALUE OF THE DAY MAPS
+// ===========================================
+
+const aspectOfTheDayAliases = {
+dadofday: "daddy",
+princessofday: "princess",
+goodgirlofday: "goodgirl",
+catmomofday: "catmom",
+stinkerofday: "stinker",
+pirateofday: "pirate",
+captainofday: "captain",
+animalofday: "animal",
+drinkofday: "drink",
+drinkoofday: "drink",
+ppofday: "pp",
+};
+```
+These blocks allow other chatters to know who is the Aspect of The day holder. 
 
 ----------------------------------------------------
  🧮 GENERIC WORD COUNTER
 ----------------------------------------------------
 
-In our latest edition of this code we have added a word counyter. 
+In our latest edition of this code we have added a word counter. 
 
 simply find this block 
 
@@ -438,7 +643,8 @@ such as
   !cookies - ${customapi.https://yourusername.onrender.com?sender=${sender}&type=cookies}
   !removecookies - ${customapi.https://yourusername.onrender.com?sender=${sender}&type=removecookies}
   ```
-----------------------------------------------------
+  
+--------------------------------------------------
 🌟 DATE COUNTDOWN
 ----------------------------------------------------
 
@@ -474,7 +680,8 @@ return res.send(message);
 ```
 What does it do? 
 
-It tells your chat exactly how many 
+It tells your chat exactly how many
+
 Days, Hours and Minutes it is until a specific date wich in this case is July 10th! 
 
 You can change this or add as many as you wish, Simply copy and paste the block below and change the dates and the wording! 
@@ -492,7 +699,38 @@ ${diffDays} - Days
 ${diffHours} - Hours 
 ${diffMinutes} - Minutes 
 ```
-Are the key factors here. Don't break them! 
+Are the key factors here. Don't break them!
+
+----------------------------------------------------
+🌟 GIVEAWAYS
+----------------------------------------------------
+
+We have added a small Giveaway function within the code, As the code is pretty long I will make it very simple to follow 
+
+```yaml
+${customapi.https://yourusername.onrender.com?sender=${sender}&type=giveaway} - Enters someone into the giveaway 
+```
+```yaml
+${customapi.https://yourusername.onrender.com?sender=${sender}&type=giveawayroll} - Rolls the giveaway - Suggested MOD only!
+```
+```yaml
+${customapi.https://yourusername.onrender.com?sender=${sender}&type=giveawayreroll} - Re Rolls the giveaway - Suggested MOD only!
+```
+```yaml
+${customapi.https://yourusername.onrender.com?sender=${sender}&type=giveawaylist} - Shows the entries - Suggested MOD only!
+```
+```yaml
+${customapi.https://yourusername.onrender.com?sender=${sender}&type=giveawaycount} - Shows the entries Count - Suggested MOD only!
+```
+```yaml
+${customapi.https://yourusername.onrender.com?sender=${sender}&user=${user}&type=giveawayremove} - Remove someone from the giveaway - Suggested MOD only!
+```
+```yaml
+${customapi.https://yourusername.onrender.com?sender=${sender}&type=giveawayclear} - Clears The Giveaway - Suggested MOD only!
+```
+```yaml
+${customapi.https://yourusername.onrender.com?sender=${sender}&type=giveawaygiveawaywinnersclear} - Shows The Winners - Suggested MOD only!
+```
 
 ----------------------------------------------------
 YOU CAN NOW CUSTOMIZE THE BOT AND MAKE IT MORE ENGAGING FOR YOUR CHAT!
